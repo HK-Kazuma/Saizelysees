@@ -8,7 +8,7 @@ export const MAX_LEVEL = 30;
 
 // ゲーム内の時計（単位は「分」）。倍速は実時間2秒 = ゲーム内10分（1秒 = 5分）、等倍はその半分（1秒 = 2.5分）
 export const MIN_PER_SEC = 2.5;
-export const FAST_MIN_PER_SEC = 30; // 23:00〜翌9:00は現実の1秒 = ゲーム内30分（倍速に関係なく一定）
+export const FAST_MIN_PER_SEC = 10; // 23:00〜翌9:00の早送り。倍速で現実の1秒 = ゲーム内20分、等倍はその半分（1秒 = 10分）
 export const FAST_START_MIN = 23 * 60;
 export const FAST_END_MIN = 9 * 60;
 export const OPEN_MIN = 10 * 60; // 10:00 開店

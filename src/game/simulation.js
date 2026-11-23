@@ -625,9 +625,9 @@ export function rebuildLayout(state) {
 // ───────── 時計と日付 ─────────
 function stepClock(state, dt) {
   const prev = state.clock;
-  // 23:00〜翌9:00は早送り。dt は倍速ぶん伸びているので、倍速に関係なく一定になるよう戻す
+  // 23:00〜翌9:00は早送り（dt は倍速ぶん伸びているので、倍速だと2倍の速さになる）
   const fast = prev >= FAST_START_MIN || prev < FAST_END_MIN;
-  let next = prev + (fast ? (dt / state.speed) * FAST_MIN_PER_SEC : dt * MIN_PER_SEC);
+  let next = prev + (fast ? dt * FAST_MIN_PER_SEC : dt * MIN_PER_SEC);
   if (prev < OPEN_MIN && next >= OPEN_MIN) next = OPEN_MIN; // 開店時刻を飛び越えない
   if (prev < FAST_START_MIN && next >= FAST_START_MIN && prev >= OPEN_MIN) next = FAST_START_MIN; // 23:00ちょうどで止めてレポートを出す
   if (next >= 1440) next -= 1440;
