@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isMuted, setMuted } from '../audio/bgm.js';
 
 async function goFullscreen() {
   try {
@@ -11,6 +12,7 @@ async function goFullscreen() {
 
 export default function Settings({ state, act, onClose }) {
   const [confirm, setConfirm] = useState(false);
+  const [muted, setMutedState] = useState(isMuted());
   const s = state.stats;
   return (
     <div className="modal-back" onClick={onClose}>
@@ -37,6 +39,9 @@ export default function Settings({ state, act, onClose }) {
           </div>
           <div className="settings-actions">
             <button className="hud-btn" onClick={goFullscreen}>全画面＆横向き</button>
+            <button className="hud-btn" onClick={() => { setMuted(!muted); setMutedState(!muted); }}>
+              BGM: {muted ? 'OFF' : 'ON'}
+            </button>
             {!confirm ? (
               <button className="hud-btn danger" onClick={() => setConfirm(true)}>データをリセット</button>
             ) : (

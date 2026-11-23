@@ -13,6 +13,7 @@ import Gallery from './components/Gallery.jsx';
 import Settings from './components/Settings.jsx';
 import RotateHint from './components/RotateHint.jsx';
 import TitleScreen from './components/TitleScreen.jsx';
+import { playBgm } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
 
 export default function App() {
@@ -31,6 +32,20 @@ export default function App() {
       .then((img) => setPoster({ small: pixelate(img, 24, 44, 6), large: pixelate(img, 72, 131, 7) }))
       .catch(() => {});
   }, []);
+
+  // BGM：ブラウザの自動再生制限のため、最初の操作でタイトル曲を開始
+  useEffect(() => {
+    if (!started) {
+      const kick = () => playBgm('title');
+      window.addEventListener('pointerdown', kick, { once: true });
+      window.addEventListener('keydown', kick, { once: true });
+      return () => {
+        window.removeEventListener('pointerdown', kick);
+        window.removeEventListener('keydown', kick);
+      };
+    }
+    playBgm('game');
+  }, [started]);
 
   const toast = useCallback((text, kind = 'info') => {
     const id = ++toastId.current;
