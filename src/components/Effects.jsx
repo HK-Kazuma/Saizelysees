@@ -25,7 +25,7 @@ export default function Effects({ store, toast }) {
           toast(e.text, 'error');
         } else if (e.type === 'levelup') {
           setBanners((b) => [...b, { k: ++id.current, ...e }]);
-        } else if (e.type === 'purchase' || e.type === 'expand') {
+        } else if (e.type === 'purchase' || e.type === 'expand' || e.type === 'clock') {
           toast(e.text, 'good');
         }
       }

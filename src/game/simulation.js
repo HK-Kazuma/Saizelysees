@@ -8,7 +8,7 @@
 //   take(注文を聞く) / serve(配膳: pickup→deliver) / checkout(会計) / cook(調理: station→place)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL } from './state.js';
+import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -553,12 +553,36 @@ export function rebuildLayout(state) {
   }
 }
 
+// ───────── 時計と日付 ─────────
+function stepClock(state, dt) {
+  const prev = state.clock;
+  // 23:00〜翌9:00は早送り。dt は倍速ぶん伸びているので、倍速に関係なく一定になるよう戻す
+  const fast = prev >= FAST_START_MIN || prev < FAST_END_MIN;
+  let next = prev + (fast ? (dt / state.speed) * FAST_MIN_PER_SEC : dt * MIN_PER_SEC);
+  if (prev < OPEN_MIN && next >= OPEN_MIN) next = OPEN_MIN; // 開店時刻を飛び越えない
+  if (next >= 1440) next -= 1440;
+  state.clock = next;
+  const crossed = (t) => prev < t && next >= t;
+  if (prev < OPEN_MIN && next >= OPEN_MIN) {
+    state.day += 1;
+    state.spawnTimer = 2;
+    state.events.push({ type: 'clock', text: `${state.day}日目 開店！` });
+  } else if (crossed(LAST_ORDER_MIN)) {
+    state.events.push({ type: 'clock', text: 'ラストオーダーです（21:30）' });
+  } else if (crossed(CLOSE_MIN)) {
+    state.events.push({ type: 'clock', text: '閉店です。おつかれさま！' });
+  }
+}
+
 // ───────── メインの1フレーム ─────────
 function step(state, dt) {
   state.time += dt;
+  stepClock(state, dt);
 
-  state.spawnTimer -= dt;
-  if (state.spawnTimer <= 0) {
+  // ラストオーダー(21:30)を過ぎたら新しいお客さんは来ない
+  const canOrder = state.clock >= OPEN_MIN && state.clock < LAST_ORDER_MIN;
+  if (canOrder) state.spawnTimer -= dt;
+  if (canOrder && state.spawnTimer <= 0) {
     const ok = spawnCustomer(state);
     const a = appeal(state);
     state.spawnTimer = ok ? Math.max(2.5, 9.5 - a * 0.22 - state.level * 0.25) * rand(0.7, 1.3) : 1.5;

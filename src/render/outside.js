@@ -226,6 +226,28 @@ function reflector(g, u, v, z) {
   g.fillRect(Math.round(p.x), Math.round(p.y), 2, 1);
 }
 
+// ───────────────────────── 街灯 ─────────────────────────
+export const LAMP_H = 40;
+// 歩道の車道側に5タイルおきに並べる（土地の外周を一周）
+export function lampSpots() {
+  const spots = [];
+  for (let t = 3.5; t < WORLD.cols; t += 5) {
+    spots.push({ u: t, v: WORLD.rows + 0.35 }, { u: t, v: -0.65 });
+  }
+  for (let t = 3.5; t < WORLD.rows; t += 5) {
+    spots.push({ u: WORLD.cols + 0.35, v: t }, { u: -0.65, v: t });
+  }
+  return spots;
+}
+
+function drawStreetLamp(g, u, v) {
+  const metal = { top: '#6a727c', left: '#4a525c', right: '#363c44' };
+  isoBox(g, u - 0.08, v - 0.08, 0.16, 0.16, 0, 3, metal);
+  isoBox(g, u - 0.03, v - 0.03, 0.06, 0.06, 3, LAMP_H - 3, metal);
+  isoBox(g, u - 0.1, v - 0.1, 0.2, 0.2, LAMP_H, 3, { top: '#fff2b0', left: '#d8d0a0', right: '#a8a078' });
+  isoBox(g, u - 0.13, v - 0.13, 0.26, 0.26, LAMP_H + 3, 2, metal);
+}
+
 // ───────────────────────── まとめて描く ─────────────────────────
 // 建物の奥側(u<0 または v<0)は建物より先に、手前側は建物のあとに、奥→手前の順で描く
 export function drawOutside(g, L, cw, ch, phase) {
@@ -267,6 +289,8 @@ export function drawOutside(g, L, cw, ch, phase) {
   railX(hiV, false);
   railY(lo, true);
   railY(hiU, false);
+  // 街灯
+  for (const l of lampSpots()) add(l.u, l.v, () => drawStreetLamp(g, l.u, l.v));
   // 角の最後の支柱
   for (const [u, v] of [[hiU, hiV], [lo, hiV], [hiU, lo], [lo, lo]]) add(u, v + 0.1, () => postAt(g, u, v));
 

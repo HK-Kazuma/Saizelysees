@@ -6,8 +6,9 @@ import { P, fillPoly, line, isoBox, hash } from './pixel.js';
 import { getCharSprite, getDishSprite, SYMBOLS } from './sprites.js';
 import { RECIPE_MAP } from '../data/recipes.js';
 import { STORE_SIZES } from '../data/shop.js';
+import { darkness, OPEN_MIN, CLOSE_MIN } from '../game/state.js';
 import { view } from './view.js';
-import { OUT_M, WORLD, drawGround, drawOutside, setBgOrigin } from './outside.js';
+import { OUT_M, WORLD, LAMP_H, lampSpots, drawGround, drawOutside, setBgOrigin } from './outside.js';
 import logoUrl from '../assets/logo.png';
 
 const WH = 72; // 壁の高さ(px)
@@ -36,6 +37,8 @@ export class Renderer {
     this.ctx = canvas.getContext('2d');
     this.bg = document.createElement('canvas');
     this.bgKey = '';
+    this.shopLight = 0; // お店の電気の明るさ(0〜1)。点灯・消灯はなめらかに切り替える
+    this.nightCv = document.createElement('canvas');
     this.viewKey = '';
     this.particles = [];
     this.poster = null;
@@ -460,7 +463,92 @@ export class Renderer {
 
     this.updateParticles(g, state, dt);
     if (state.decor.lamp) for (const t of L.tables) this.drawLamp(g, t, time);
+    this.drawNight(g, state, dt);
     for (const c of state.customers) this.drawBubble(g, state, c, time);
+    g.restore();
+  }
+
+  // ───────── 夜の暗さと照明 ─────────
+  // 夜は全体を暗くして、街灯・営業中のお店の灯りがあるところだけ明るく抜く。閉店(22:00)でお店の電気も消える
+  drawNight(g, state, dt) {
+    const clock = state.clock;
+    const dark = darkness(clock);
+    const open = clock >= OPEN_MIN && clock < CLOSE_MIN;
+    this.shopLight += ((open ? 1 : 0) - this.shopLight) * Math.min(1, dt * 3);
+    if (dark < 0.01) return;
+    const cv = this.nightCv;
+    if (cv.width !== this.canvas.width || cv.height !== this.canvas.height) {
+      cv.width = this.canvas.width;
+      cv.height = this.canvas.height;
+    }
+    const n = cv.getContext('2d');
+    n.setTransform(1, 0, 0, 1, 0, 0);
+    n.globalCompositeOperation = 'source-over';
+    n.clearRect(0, 0, cv.width, cv.height);
+    n.fillStyle = `rgba(10,16,52,${(dark * 0.66).toFixed(3)})`;
+    n.fillRect(0, 0, cv.width, cv.height);
+    n.translate(view.ox, view.oy);
+    n.globalCompositeOperation = 'destination-out';
+
+    const L = state.layout;
+    const lit = this.shopLight;
+    if (lit > 0.01) {
+      // お店のまわりの地面にもれる灯り（外側ほど薄い）
+      for (let i = 3; i >= 1; i--) {
+        const e = i * 0.9;
+        fillPoly(n, [P(-e, -e), P(L.cols + e, -e), P(L.cols + e, L.rows + e), P(-e, L.rows + e)], `rgba(0,0,0,${(0.2 * lit).toFixed(3)})`);
+      }
+      // 店内（床と2面の壁）
+      const a = `rgba(0,0,0,${(0.92 * lit).toFixed(3)})`;
+      fillPoly(n, [P(0, 0), P(L.cols, 0), P(L.cols, L.rows), P(0, L.rows)], a);
+      fillPoly(n, [P(0, 0), P(0, L.rows), P(0, L.rows, WH), P(0, 0, WH)], a);
+      fillPoly(n, [P(0, 0), P(L.cols, 0), P(L.cols, 0, WH), P(0, 0, WH)], a);
+    }
+    // 街灯の足もとの明るい円（地面なので縦につぶす）
+    const lamps = lampSpots();
+    for (const l of lamps) {
+      const p = P(l.u, l.v);
+      n.save();
+      n.translate(p.x, p.y);
+      n.scale(1, 0.5);
+      const gr = n.createRadialGradient(0, 0, 2, 0, 0, 52);
+      gr.addColorStop(0, `rgba(0,0,0,${(0.95 * dark).toFixed(3)})`);
+      gr.addColorStop(1, 'rgba(0,0,0,0)');
+      n.fillStyle = gr;
+      n.beginPath();
+      n.arc(0, 0, 52, 0, Math.PI * 2);
+      n.fill();
+      n.restore();
+    }
+    g.drawImage(cv, -view.ox, -view.oy);
+
+    // 暖色のあかり（街灯の光だまりと電球）
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (const l of lamps) {
+      const p = P(l.u, l.v);
+      g.save();
+      g.translate(p.x, p.y);
+      g.scale(1, 0.5);
+      const gr = g.createRadialGradient(0, 0, 2, 0, 0, 52);
+      gr.addColorStop(0, `rgba(255,196,96,${(0.3 * dark).toFixed(3)})`);
+      gr.addColorStop(1, 'rgba(255,196,96,0)');
+      g.fillStyle = gr;
+      g.beginPath();
+      g.arc(0, 0, 52, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+      const h = P(l.u, l.v, LAMP_H + 1);
+      const hg = g.createRadialGradient(h.x, h.y, 0, h.x, h.y, 9);
+      hg.addColorStop(0, `rgba(255,236,160,${(0.8 * dark).toFixed(3)})`);
+      hg.addColorStop(1, 'rgba(255,236,160,0)');
+      g.fillStyle = hg;
+      g.fillRect(Math.round(h.x) - 9, Math.round(h.y) - 9, 18, 18);
+    }
+    if (lit > 0.01) {
+      g.globalAlpha = 0.1 * lit * dark;
+      fillPoly(g, [P(0, 0), P(L.cols, 0), P(L.cols, L.rows), P(0, L.rows)], '#ffd890');
+    }
     g.restore();
   }
 

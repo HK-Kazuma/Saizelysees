@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { xpToNext, appeal } from '../game/state.js';
+import { xpToNext, appeal, clockText, isNight } from '../game/state.js';
 import { STORE_SIZES } from '../data/shop.js';
 
 export default function HUD({ state, act, onOpen }) {
@@ -27,6 +27,12 @@ export default function HUD({ state, act, onOpen }) {
         <span className="logo-main">Saizelysees</span>
         <span className="logo-sub">{STORE_SIZES[state.sizeIdx].name}</span>
       </div>
+      <div className="hud-chip clock" title="ゲーム内の時刻（10:00開店 / 21:30ラストオーダー / 22:00閉店）">
+        <span className="day">{state.day}日目</span>
+        <ClockIcon clock={Math.floor(state.clock / 10) * 10} />
+        <span className="time">{clockText(state.clock)}</span>
+        {isNight(state.clock) && <MoonIcon />}
+      </div>
       <div className={`hud-chip coin ${bump ? 'bump' : ''}`}>
         <span className="coin-icon" />¥{state.coins.toLocaleString()}
       </div>
@@ -44,5 +50,31 @@ export default function HUD({ state, act, onOpen }) {
       <button className="hud-btn" onClick={() => onOpen('recipes')}>レシピ</button>
       <button className="hud-btn primary" onClick={() => onOpen('shop')}>ショップ</button>
     </header>
+  );
+}
+
+// 針が時刻に合わせて回る時計
+function ClockIcon({ clock }) {
+  const min = clock % 60;
+  const hour = (clock / 60) % 12;
+  const hand = (deg, len) => {
+    const r = (deg * Math.PI) / 180;
+    return { x2: 8 + Math.sin(r) * len, y2: 8 - Math.cos(r) * len };
+  };
+  const hh = hand(hour * 30, 3.6), mm = hand(min * 6, 5.4);
+  return (
+    <svg className="clock-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" fill="#fffdf4" stroke="#2b1a14" strokeWidth="1.5" />
+      <line x1="8" y1="8" {...hh} stroke="#2b1a14" strokeWidth="1.6" strokeLinecap="round" />
+      <line x1="8" y1="8" {...mm} stroke="#b3202a" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg className="moon-icon" width="16" height="16" viewBox="0 0 16 16" aria-label="夜">
+      <path d="M11.5 1.5a7 7 0 1 0 3 12.2A6 6 0 0 1 11.5 1.5z" fill="#f6c83a" stroke="#9a7020" strokeWidth="1" strokeLinejoin="round" />
+    </svg>
   );
 }

@@ -6,6 +6,27 @@ import { buildLayout } from './layout.js';
 const SAVE_KEY = 'saizelysees-save-v1';
 export const MAX_LEVEL = 30;
 
+// ゲーム内の時計（単位は「分」）。等倍は実時間1秒 = ゲーム内5分、倍速は1秒 = 10分
+export const MIN_PER_SEC = 5;
+export const FAST_MIN_PER_SEC = 30; // 23:00〜翌9:00は現実の1秒 = ゲーム内30分（倍速に関係なく一定）
+export const FAST_START_MIN = 23 * 60;
+export const FAST_END_MIN = 9 * 60;
+export const OPEN_MIN = 10 * 60; // 10:00 開店
+export const LAST_ORDER_MIN = 21 * 60 + 30; // 21:30 ラストオーダー
+export const CLOSE_MIN = 22 * 60; // 22:00 閉店
+// 外の暗さ 0(昼)〜1(夜)。17:00〜19:00で暗くなり、5:00〜7:00で明るくなる
+export const darkness = (clock) => {
+  if (clock >= 19 * 60 || clock < 5 * 60) return 1;
+  if (clock >= 17 * 60) return (clock - 17 * 60) / 120;
+  if (clock < 7 * 60) return 1 - (clock - 5 * 60) / 120;
+  return 0;
+};
+export const isNight = (clock) => clock >= 18 * 60 || clock < 6 * 60;
+export const clockText = (clock) => {
+  const m = (Math.floor(clock / 10) * 10) % 1440; // 10分刻みで表示
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+};
+
 // 次のレベルまでに必要な経験値
 export const xpToNext = (level) => Math.round(60 * Math.pow(level, 1.55));
 
@@ -39,6 +60,8 @@ export function createInitialState() {
     coins: 1000,
     xp: 0,
     level: 1,
+    day: 1,
+    clock: OPEN_MIN,
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     sizeIdx: 0,
     tables: 2,
@@ -62,7 +85,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {

@@ -87,6 +87,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   white-space: nowrap;
   margin: 3px;
 }
+.hud-chip.clock { display: flex; align-items: center; gap: 4px; font-weight: bold; white-space: nowrap; }
+.hud-chip.clock .day { font-size: 12px; }
+.hud-chip.clock .time { font-variant-numeric: tabular-nums; min-width: 38px; }
 .hud-chip.small { font-size: 12px; padding: 3px 6px; }
 .hud-chip.coin { font-weight: bold; min-width: 92px; transition: transform 0.15s; }
 .hud-chip.coin.bump { transform: scale(1.15); background: #fff6c8; }
