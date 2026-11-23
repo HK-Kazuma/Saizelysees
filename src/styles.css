@@ -491,21 +491,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   line-height: 1;
   letter-spacing: 0.3cqw;
   color: #fffdf7;
-  /* にじまない角ばった縁取り（ドット風） */
-  --o: 0.42cqw;
-  text-shadow:
-    var(--o) 0 #3a1a10, calc(var(--o) * -1) 0 #3a1a10,
-    0 var(--o) #3a1a10, 0 calc(var(--o) * -1) #3a1a10,
-    var(--o) var(--o) #3a1a10, calc(var(--o) * -1) var(--o) #3a1a10,
-    var(--o) calc(var(--o) * -1) #3a1a10, calc(var(--o) * -1) calc(var(--o) * -1) #3a1a10,
-    0 calc(var(--o) * 2) #3a1a10;
   pointer-events: none;
-  animation: title-blink 1.6s ease-in-out infinite;
+  animation: title-blink 1.2s ease-in-out infinite;
 }
 @keyframes title-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .title-tap { animation: none; }
+  50% { opacity: 0; }
 }

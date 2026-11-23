@@ -6,6 +6,7 @@ import { P, fillPoly, line, isoBox, hash } from './pixel.js';
 import { getCharSprite, getDishSprite, SYMBOLS } from './sprites.js';
 import { RECIPE_MAP } from '../data/recipes.js';
 import { view } from './view.js';
+import logoUrl from '../assets/logo.png';
 
 const WH = 72; // 壁の高さ(px)
 
@@ -37,6 +38,28 @@ export class Renderer {
     this.poster = null;
     this.css = { w: 300, h: 200, dpr: 1 };
     this.posterRect = null;
+    this.logo = null;
+    this.logoCache = null;
+    const img = new Image();
+    img.onload = () => {
+      this.logo = img;
+      this.bgKey = '';
+    };
+    img.src = logoUrl;
+  }
+
+  // ロゴを w×h のドットに縮小して [r,g,b,a] 配列で返す（サイズごとにキャッシュ）
+  logoPixels(w, h) {
+    if (this.logoCache?.w === w && this.logoCache?.h === h) return this.logoCache.data;
+    const cv = document.createElement('canvas');
+    cv.width = w;
+    cv.height = h;
+    const g = cv.getContext('2d', { willReadFrequently: true });
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(this.logo, 0, 0, w, h);
+    const data = g.getImageData(0, 0, w, h).data;
+    this.logoCache = { w, h, data };
+    return data;
   }
 
   setPoster(cv) {
@@ -315,6 +338,25 @@ export class Renderer {
     if (state.decor.fresco) {
       const f0 = 7 * 16 + 4;
       if (f0 + 34 < lenR) this.drawFresco(g, f0);
+    }
+    this.drawLogoSign(g, state, lenR);
+  }
+
+  // 一番右端の壁に店のロゴを貼る（壁画があるときはその右の空きに収まる大きさにする）
+  drawLogoSign(g, state, lenR) {
+    if (!this.logo) return;
+    const start = state.decor.fresco && 7 * 16 + 4 + 34 < lenR ? 7 * 16 + 4 + 34 + 3 : 7 * 16 + 3;
+    const w = Math.min(42, lenR - 4 - start);
+    if (w < 24) return;
+    const h = Math.round((w * this.logo.height) / this.logo.width);
+    const data = this.logoPixels(w, h);
+    const t0 = lenR - 4 - w, z0 = 49;
+    for (let i = 0; i < w; i++) {
+      for (let j = 0; j < h; j++) {
+        const o = (j * w + i) * 4;
+        if (data[o + 3] < 128) continue;
+        this.wpx(g, 'R', t0 + i, z0 + (h - 1 - j), `rgb(${data[o]},${data[o + 1]},${data[o + 2]})`);
+      }
     }
   }
 
