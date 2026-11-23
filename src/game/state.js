@@ -6,8 +6,8 @@ import { buildLayout } from './layout.js';
 const SAVE_KEY = 'saizelysees-save-v1';
 export const MAX_LEVEL = 30;
 
-// ゲーム内の時計（単位は「分」）。等倍は実時間1秒 = ゲーム内5分、倍速は1秒 = 10分
-export const MIN_PER_SEC = 5;
+// ゲーム内の時計（単位は「分」）。倍速は実時間2秒 = ゲーム内10分（1秒 = 5分）、等倍はその半分（1秒 = 2.5分）
+export const MIN_PER_SEC = 2.5;
 export const FAST_MIN_PER_SEC = 30; // 23:00〜翌9:00は現実の1秒 = ゲーム内30分（倍速に関係なく一定）
 export const FAST_START_MIN = 23 * 60;
 export const FAST_END_MIN = 9 * 60;
@@ -15,6 +15,14 @@ export const OPEN_MIN = 10 * 60; // 10:00 開店
 export const LAST_ORDER_MIN = 21 * 60 + 30; // 21:30 ラストオーダー
 export const CLOSE_MIN = 22 * 60; // 22:00 閉店
 export const ARRIVE_MIN = OPEN_MIN - 60; // 開店の1時間前に出勤
+// 時間帯ごとの来客の多さ（1=ふつう）。開店直後・昼下がり・閉店前は少ない
+export const CROWD_QUIET = 0.45;
+export const crowdRate = (clock) => {
+  const h = clock / 60;
+  if ((h >= 10 && h < 11) || (h >= 15 && h < 17) || h >= 21) return CROWD_QUIET;
+  return 1;
+};
+
 // 外の暗さ 0(昼)〜1(夜)。17:00〜19:00で暗くなり、5:00〜7:00で明るくなる
 export const darkness = (clock) => {
   if (clock >= 19 * 60 || clock < 5 * 60) return 1;
@@ -56,6 +64,18 @@ export function unlocksAt(level, state) {
   };
 }
 
+// その日の集計（閉店後のレポート用）
+export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0 });
+
+// 23:00に表示するレポート。売れた料理を多い順に並べる
+export function makeReport(state) {
+  const d = state.daily;
+  const items = Object.entries(d.sold)
+    .map(([id, v]) => ({ id, n: v.n, amount: v.amount }))
+    .sort((a, b) => b.n - a.n || b.amount - a.amount);
+  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, coins: state.coins };
+}
+
 export function createInitialState() {
   const state = {
     coins: 1000,
@@ -63,6 +83,8 @@ export function createInitialState() {
     level: 1,
     day: 1,
     clock: OPEN_MIN,
+    daily: emptyDaily(),
+    report: null, // 閉店後のレポート（表示中は時間が止まる）
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     sizeIdx: 0,
     tables: 2,
@@ -86,7 +108,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['day', 'clock', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'daily', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {
@@ -109,6 +131,8 @@ export function loadGame() {
         else state[k] = data[k];
       }
       state.layout = buildLayout(state);
+      // レポート表示中(23:00)にリロードしたときは、レポートをもう一度出す
+      if (Math.round(state.clock) === FAST_START_MIN && state.daily.served + state.daily.angry > 0) state.report = makeReport(state);
     }
   } catch {
     /* 壊れたセーブは無視して新規開始 */

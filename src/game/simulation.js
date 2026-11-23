@@ -8,7 +8,7 @@
 //   take(注文を聞く) / serve(配膳: pickup→deliver) / checkout(会計) / cook(調理: station→place)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { makeReport, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -148,7 +148,10 @@ function leaveAngry(state, c) {
   c.state = 'leaving';
   c.angry = true;
   c.claimedBy = null;
-  if (!c.complainer) state.stats.angry++;
+  if (!c.complainer) {
+    state.stats.angry++;
+    state.daily.angry++;
+  }
   else {
     // クレーマーを放置したときは、戦いに負けたのと同じ（所持金の半分）
     const lost = takeHalfCoins(state);
@@ -158,10 +161,14 @@ function leaveAngry(state, c) {
   exitPath(state, c);
 }
 
-// 23:00になっても店に残っているお客さんには、帰ってもらう（怒らずに退店）
+// 閉店(22:00)で、店に残っているお客さん（クレーマーも）は全員帰る。食べ終えて会計待ちの人は先に支払う
 function sendHomeCustomers(state) {
   for (const c of state.customers) {
     if (c.state === 'leaving') continue;
+    if (!c.complainer && ['wantPay', 'toPay', 'atRegister'].includes(c.state)) {
+      pay(state, c);
+      c.happy = true;
+    }
     removeOrderOf(state, c);
     freeSeat(state, c);
     c.dish = null;
@@ -251,6 +258,12 @@ function pay(state, c) {
   state.coins += amount;
   state.stats.sales += amount;
   state.stats.served++;
+  const dl = state.daily;
+  const sold = (dl.sold[c.recipeId] ||= { n: 0, amount: 0 });
+  sold.n++;
+  sold.amount += amount;
+  dl.sales += amount;
+  dl.served++;
   if (q === 3) state.stats.perfect++;
   state.events.push({ type: 'sale', amount, xp, x: state.layout.register.x, y: state.layout.register.y, quality: q });
   addXp(state, xp);
@@ -616,10 +629,10 @@ function stepClock(state, dt) {
   const fast = prev >= FAST_START_MIN || prev < FAST_END_MIN;
   let next = prev + (fast ? (dt / state.speed) * FAST_MIN_PER_SEC : dt * MIN_PER_SEC);
   if (prev < OPEN_MIN && next >= OPEN_MIN) next = OPEN_MIN; // 開店時刻を飛び越えない
+  if (prev < FAST_START_MIN && next >= FAST_START_MIN && prev >= OPEN_MIN) next = FAST_START_MIN; // 23:00ちょうどで止めてレポートを出す
   if (next >= 1440) next -= 1440;
   state.clock = next;
   const crossed = (t) => prev < t && next >= t;
-  if (crossed(FAST_START_MIN)) sendHomeCustomers(state);
   if (prev < OPEN_MIN && next >= OPEN_MIN) {
     state.day += 1;
     state.spawnTimer = 2;
@@ -628,6 +641,9 @@ function stepClock(state, dt) {
     state.events.push({ type: 'clock', text: 'ラストオーダーです（21:30）' });
   } else if (crossed(CLOSE_MIN)) {
     state.events.push({ type: 'clock', text: '閉店です。おつかれさま！' });
+    sendHomeCustomers(state);
+  } else if (crossed(FAST_START_MIN)) {
+    state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
   }
 }
 
@@ -638,7 +654,7 @@ function step(state, dt) {
 
   // ラストオーダー(21:30)を過ぎたら新しいお客さんは来ない
   const canOrder = state.clock >= OPEN_MIN && state.clock < LAST_ORDER_MIN;
-  if (canOrder) state.spawnTimer -= dt;
+  if (canOrder) state.spawnTimer -= dt * crowdRate(state.clock); // 閑散時間帯は次の来客までが長くなる
   if (canOrder && state.spawnTimer <= 0) {
     const ok = spawnCustomer(state);
     const a = appeal(state);
@@ -656,6 +672,7 @@ function step(state, dt) {
 }
 
 export function tick(state, realDt) {
+  if (state.report) return; // レポート表示中は時間が止まる
   let dt = Math.min(realDt, 0.1) * state.speed;
   // 2倍速でも1ステップが大きくなりすぎないように分割する
   while (dt > 0) {

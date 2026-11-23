@@ -8,6 +8,7 @@ import TaskPanel from './components/TaskPanel.jsx';
 import CookingPanel from './components/CookingPanel.jsx';
 import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
+import ReportPanel from './components/ReportPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
 import Gallery from './components/Gallery.jsx';
@@ -68,6 +69,15 @@ export default function App() {
     [store, toast],
   );
 
+  // 閉店後のレポートが出たら、調理・クレーマー対応の画面は閉じる
+  useEffect(() => {
+    if (state.report) {
+      setCookingId(null);
+      setFightId(null);
+      setModal(null);
+    }
+  }, [state.report]);
+
   const openCooking = useCallback(
     (orderId) => {
       const res = act({ type: 'START_COOK', orderId });
@@ -120,6 +130,8 @@ export default function App() {
       {modal === 'gallery' && <Gallery poster={poster.large} onClose={() => setModal(null)} />}
       {modal === 'audio' && <AudioSettings onClose={() => setModal(null)} />}
       {modal === 'settings' && <Settings state={state} act={act} onClose={() => setModal(null)} />}
+
+      {state.report && <ReportPanel report={state.report} onClose={() => act({ type: 'CLOSE_REPORT' })} />}
 
       <div className="toasts">
         {toasts.map((t) => (

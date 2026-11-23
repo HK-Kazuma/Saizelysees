@@ -1,7 +1,7 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
 import { EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave } from './state.js';
+import { createInitialState, clearSave, emptyDaily } from './state.js';
 
 const fail = (msg) => ({ ok: false, msg });
 const okMsg = (msg) => ({ ok: true, msg });
@@ -162,6 +162,10 @@ export function applyAction(state, action) {
     }
 
     // ── その他 ──
+    case 'CLOSE_REPORT':
+      state.report = null;
+      state.daily = emptyDaily();
+      return okMsg();
     case 'SET_SPEED':
       state.speed = action.speed;
       return okMsg();
