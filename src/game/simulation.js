@@ -112,6 +112,13 @@ function spawnCustomer(state) {
   return true;
 }
 
+// クレーマーに所持金の半分を持っていかれる（戦いに負けたとき・放置して帰られたとき共通）
+function takeHalfCoins(state) {
+  const lost = Math.floor(state.coins / 2);
+  state.coins -= lost;
+  return lost;
+}
+
 // クレーマー戦の結果：勝てば撃退して帰ってもらう。負ければ所持金の半分を持っていかれる
 export function resolveComplainer(state, c, won) {
   freeSeat(state, c);
@@ -119,7 +126,7 @@ export function resolveComplainer(state, c, won) {
   c.state = 'leaving';
   c.angry = true;
   if (won) state.stats.defeated = (state.stats.defeated || 0) + 1;
-  else state.coins -= Math.floor(state.coins / 2);
+  else takeHalfCoins(state);
   exitPath(state, c);
 }
 
@@ -142,6 +149,11 @@ function leaveAngry(state, c) {
   c.angry = true;
   c.claimedBy = null;
   if (!c.complainer) state.stats.angry++;
+  else {
+    // クレーマーを放置したときは、戦いに負けたのと同じ（所持金の半分）
+    const lost = takeHalfCoins(state);
+    state.events.push({ type: 'penalty', text: `クレーマーを放置…所持金の半分（¥${lost}）を持っていかれた！` });
+  }
   state.events.push({ type: 'angry', x: c.x, y: c.y, text: c.complainer ? 'ふん！' : 'もう帰る！' });
   exitPath(state, c);
 }

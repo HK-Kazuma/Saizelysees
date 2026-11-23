@@ -53,7 +53,43 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
     if (poster && rendererRef.current) rendererRef.current.setPoster(poster);
   }, [poster]);
 
+  // タップ＝お客さん/ポスターの操作、ドラッグ＝視点移動（スマホは指1本、PCは左クリックを押しながら）
+  const drag = useRef(null);
+
   const onPointerDown = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (drag.current) return; // 2本目の指は無視
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+    if (!d.moved) {
+      d.moved = true;
+      canvasRef.current.style.cursor = 'grabbing';
+    }
+    const k = view.k / view.dpr;
+    rendererRef.current.panBy((e.clientX - d.x) / k, (e.clientY - d.y) / k);
+    d.x = e.clientX;
+    d.y = e.clientY;
+  };
+
+  const endDrag = () => {
+    drag.current = null;
+    if (canvasRef.current) canvasRef.current.style.cursor = '';
+  };
+
+  const onPointerUp = (e) => {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    endDrag();
+    if (!d.moved) tap(e);
+  };
+
+  const tap = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();
     const p = cssToInternal(e.clientX - rect.left, e.clientY - rect.top);
     const hit = rendererRef.current.hitTest(store.state, p.x + view.ox, p.y + view.oy);
@@ -76,7 +112,7 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
 
   return (
     <div ref={wrapRef} className="canvas-wrap">
-      <canvas ref={canvasRef} className="game-canvas" onPointerDown={onPointerDown} />
+      <canvas ref={canvasRef} className="game-canvas" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={endDrag} />
     </div>
   );
 }

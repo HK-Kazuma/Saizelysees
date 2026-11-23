@@ -5,10 +5,13 @@
 import { P, fillPoly, line, isoBox, hash } from './pixel.js';
 import { getCharSprite, getDishSprite, SYMBOLS } from './sprites.js';
 import { RECIPE_MAP } from '../data/recipes.js';
+import { STORE_SIZES } from '../data/shop.js';
 import { view } from './view.js';
+import { OUT_M, WORLD, drawGround, drawOutside, setBgOrigin } from './outside.js';
 import logoUrl from '../assets/logo.png';
 
 const WH = 72; // 壁の高さ(px)
+const FIT_SIZE_IDX = 2; // 最初に画面へ収める店のサイズ（これより大きい店は動かして見る）
 
 const C = {
   bg: '#2a1712',
@@ -72,53 +75,87 @@ export class Renderer {
     this.viewKey = '';
   }
 
-  // 店のサイズに合わせて、整数倍で拡大できる内部解像度を決める（ドットがにじまない）
+  // 世界（最大サイズの土地＋道路）の範囲。背景はこの範囲を丸ごと1枚に描く
+  worldBounds() {
+    const PAD = 80;
+    return {
+      minX: -(WORLD.rows + OUT_M) * 16 - 6 - PAD,
+      maxX: (WORLD.cols + OUT_M) * 16 + 6 + PAD,
+      minY: -WH - 14 - OUT_M * 6 - PAD,
+      maxY: (WORLD.cols + WORLD.rows + OUT_M * 2) * 8 + 10 + PAD,
+    };
+  }
+
+  // 拡大率は固定（店が拡張されても変えない）。収まりきらない分は指/マウスでドラッグして見る
   updateView(L) {
-    const key = `${this.css.w}x${this.css.h}@${this.css.dpr}|${L.cols}x${L.rows}`;
-    if (key === this.viewKey) return;
-    this.viewKey = key;
-    const minX = -L.rows * 16 - 6, maxX = L.cols * 16 + 6;
-    const minY = -WH - 14, maxY = (L.cols + L.rows) * 8 + 10;
-    const bw = maxX - minX, bh = maxY - minY;
-    const { w, h, dpr } = this.css;
-    const s = Math.min((w * dpr) / bw, (h * dpr) / bh);
-    // 整数倍だと余白が大きくなるので、スマホでは画面いっぱいに拡大する（高DPRなのでドットの不揃いは目立たない）
-    const k = s >= 4 ? Math.floor(s) : s;
-    const W = Math.ceil((w * dpr) / k), H = Math.ceil((h * dpr) / k);
-    this.canvas.width = W;
-    this.canvas.height = H;
-    this.canvas.style.width = `${w}px`;
-    this.canvas.style.height = `${h}px`;
-    view.k = k;
-    view.dpr = dpr;
-    view.ox = Math.round((W - bw) / 2 - minX);
-    view.oy = Math.round((H - bh) / 2 - minY);
-    this.bgKey = '';
+    const key = `${this.css.w}x${this.css.h}@${this.css.dpr}`;
+    if (key !== this.viewKey) {
+      this.viewKey = key;
+      const fit = STORE_SIZES[Math.min(FIT_SIZE_IDX, STORE_SIZES.length - 1)];
+      const bw = (fit.cols + fit.rows) * 16 + 12;
+      const bh = WH + 14 + (fit.cols + fit.rows) * 8 + 10;
+      const { w, h, dpr } = this.css;
+      const s = Math.min((w * dpr) / bw, (h * dpr) / bh);
+      // 整数倍だと余白が大きくなるので、スマホでは画面いっぱいに拡大する（高DPRなのでドットの不揃いは目立たない）
+      const k = s >= 4 ? Math.floor(s) : s;
+      this.W = Math.ceil((w * dpr) / k);
+      this.H = Math.ceil((h * dpr) / k);
+      this.canvas.width = this.W;
+      this.canvas.height = this.H;
+      this.canvas.style.width = `${w}px`;
+      this.canvas.style.height = `${h}px`;
+      view.k = k;
+      view.dpr = dpr;
+      if (!this.centered) {
+        // 最初は今のお店が画面の真ん中に来るようにする
+        const c = P(L.cols / 2, L.rows / 2);
+        view.ox = Math.round(this.W / 2 - c.x);
+        view.oy = Math.round(this.H / 2 - c.y + WH / 2);
+        this.centered = true;
+      }
+      this.clampView();
+    }
+  }
+
+  // 世界の外が見えないように視点を制限する
+  clampView() {
+    const b = this.worldBounds();
+    const fit = (lo, hi, size, v) => (hi - lo <= size ? Math.round((size - (hi - lo)) / 2 - lo) : Math.round(Math.min(-lo, Math.max(size - hi, v))));
+    view.ox = fit(b.minX, b.maxX, this.W, view.ox);
+    view.oy = fit(b.minY, b.maxY, this.H, view.oy);
+  }
+
+  // 内部ドット単位で視点を動かす
+  panBy(dx, dy) {
+    view.ox += dx;
+    view.oy += dy;
+    this.clampView();
   }
 
   // ───────────────────────── 背景 ─────────────────────────
   buildBackground(state) {
     const L = state.layout;
     const eqKey = Object.entries(state.equipment).map(([k, v]) => `${k}${v.owned ? 1 : 0}`).join('');
-    const key = `${this.canvas.width}x${this.canvas.height}|${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}`;
+    const key = `${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}`;
     if (key === this.bgKey) return;
     this.bgKey = key;
+    const wb = this.worldBounds();
     const cv = this.bg;
-    cv.width = this.canvas.width;
-    cv.height = this.canvas.height;
+    cv.width = wb.maxX - wb.minX;
+    cv.height = wb.maxY - wb.minY;
+    this.bgOx = -wb.minX;
+    this.bgOy = -wb.minY;
+    setBgOrigin(this.bgOx, this.bgOy);
     const g = cv.getContext('2d');
-    g.fillStyle = C.bg;
-    g.fillRect(0, 0, cv.width, cv.height);
-    // うっすら暖色のグラデーション
-    const grd = g.createRadialGradient(cv.width / 2, cv.height / 2, 10, cv.width / 2, cv.height / 2, cv.width * 0.7);
-    grd.addColorStop(0, 'rgba(120,50,30,0.55)');
-    grd.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grd;
+    g.fillStyle = '#66a547'; // 芝生
     g.fillRect(0, 0, cv.width, cv.height);
     g.save();
-    g.translate(view.ox, view.oy);
+    g.translate(this.bgOx, this.bgOy);
+    drawGround(g, L, cv.width, cv.height); // 歩道・道路
+    drawOutside(g, L, cv.width, cv.height, 'back'); // 奥側のガードレール・街路樹
     this.drawFloor(g, state);
     this.drawWalls(g, state);
+    drawOutside(g, L, cv.width, cv.height, 'front'); // 手前側のガードレール・街路樹
     g.restore();
   }
 
@@ -380,7 +417,9 @@ export class Renderer {
     this.buildBackground(state);
     const g = this.ctx;
     g.imageSmoothingEnabled = false;
-    g.drawImage(this.bg, 0, 0);
+    g.fillStyle = '#66a547';
+    g.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    g.drawImage(this.bg, view.ox - this.bgOx, view.oy - this.bgOy);
     g.save();
     g.translate(view.ox, view.oy);
 

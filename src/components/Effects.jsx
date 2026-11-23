@@ -21,6 +21,8 @@ export default function Effects({ store, toast }) {
           const k = ++id.current;
           setFloats((f) => [...f, { k, x: p.x, y: p.y, text: e.text, cls: 'angry' }]);
           setTimeout(() => setFloats((f) => f.filter((x) => x.k !== k)), 1400);
+        } else if (e.type === 'penalty') {
+          toast(e.text, 'error');
         } else if (e.type === 'levelup') {
           setBanners((b) => [...b, { k: ++id.current, ...e }]);
         } else if (e.type === 'purchase' || e.type === 'expand') {
