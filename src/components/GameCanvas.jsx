@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { rebuildSpriteCaches } from '../render/sprites.js';
 import { Renderer } from '../render/renderer.js';
 import { cssToInternal, view } from '../render/view.js';
 
@@ -30,7 +31,19 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
+
+    // 他のアプリから戻ったとき、消された可能性のある画像キャッシュを作り直す
+    const onReturn = () => {
+      if (document.visibilityState === 'hidden') return;
+      rebuildSpriteCaches();
+      r.bgKey = '';
+      last = performance.now();
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('pageshow', onReturn);
     return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('pageshow', onReturn);
       cancelAnimationFrame(raf);
       ro.disconnect();
     };

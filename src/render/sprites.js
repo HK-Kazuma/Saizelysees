@@ -202,11 +202,24 @@ export function preloadIcons() {
 }
 
 // ───────── 吹き出し用の記号 ─────────
-export const SYMBOLS = {
-  bang: makeSprite(['.rr.', '.rr.', '.rr.', '.rr.', '....', '.rr.'], { r: '#d8262e' }),
-  yen: makeSprite(['.yyyy.', 'yyoyoy', 'yyyoyy', 'yoooyy', 'yyoyyy', '.yyyy.'].map((r) => r), { y: '#f6c83a', o: '#a8761a' }),
-  dots: makeSprite(['k.k.k'], { k: '#5a4a44' }),
-  heart: makeSprite(['.r.r.', 'rrrrr', 'rrrrr', '.rrr.', '..r..'], { r: '#e8405a' }),
-  anger: makeSprite(['r.r.r', '.rrr.', 'rr.rr', '.rrr.', 'r.r.r'], { r: '#e02020' }),
-  note: makeSprite(['..kk', '..kk', '..k.', 'kkk.', 'kk..'], { k: '#3a7a3a' }),
+const SYMBOL_DEFS = {
+  bang: () => makeSprite(['.rr.', '.rr.', '.rr.', '.rr.', '....', '.rr.'], { r: '#d8262e' }),
+  yen: () => makeSprite(['.yyyy.', 'yyoyoy', 'yyyoyy', 'yoooyy', 'yyoyyy', '.yyyy.'].map((r) => r), { y: '#f6c83a', o: '#a8761a' }),
+  dots: () => makeSprite(['k.k.k'], { k: '#5a4a44' }),
+  heart: () => makeSprite(['.r.r.', 'rrrrr', 'rrrrr', '.rrr.', '..r..'], { r: '#e8405a' }),
+  anger: () => makeSprite(['r.r.r', '.rrr.', 'rr.rr', '.rrr.', 'r.r.r'], { r: '#e02020' }),
+  note: () => makeSprite(['..kk', '..kk', '..k.', 'kkk.', 'kk..'], { k: '#3a7a3a' }),
 };
+export const SYMBOLS = {};
+function buildSymbols() {
+  for (const k of Object.keys(SYMBOL_DEFS)) SYMBOLS[k] = SYMBOL_DEFS[k]();
+}
+buildSymbols();
+
+// スマホでアプリを切り替えると、ブラウザがメモリ節約のためオフスクリーンcanvasの中身を消すことがある。
+// 戻ってきたときにキャッシュを捨てて作り直し、キャラや料理が透明になるのを防ぐ。
+export function rebuildSpriteCaches() {
+  cache.clear();
+  iconCache.clear();
+  buildSymbols();
+}
