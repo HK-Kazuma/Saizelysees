@@ -14,6 +14,7 @@ export const FAST_END_MIN = 9 * 60;
 export const OPEN_MIN = 10 * 60; // 10:00 開店
 export const LAST_ORDER_MIN = 21 * 60 + 30; // 21:30 ラストオーダー
 export const CLOSE_MIN = 22 * 60; // 22:00 閉店
+export const ARRIVE_MIN = OPEN_MIN - 60; // 開店の1時間前に出勤
 // 外の暗さ 0(昼)〜1(夜)。17:00〜19:00で暗くなり、5:00〜7:00で明るくなる
 export const darkness = (clock) => {
   if (clock >= 19 * 60 || clock < 5 * 60) return 1;

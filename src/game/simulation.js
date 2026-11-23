@@ -8,7 +8,7 @@
 //   take(注文を聞く) / serve(配膳: pickup→deliver) / checkout(会計) / cook(調理: station→place)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -158,6 +158,19 @@ function leaveAngry(state, c) {
   exitPath(state, c);
 }
 
+// 23:00になっても店に残っているお客さんには、帰ってもらう（怒らずに退店）
+function sendHomeCustomers(state) {
+  for (const c of state.customers) {
+    if (c.state === 'leaving') continue;
+    removeOrderOf(state, c);
+    freeSeat(state, c);
+    c.dish = null;
+    c.state = 'leaving';
+    c.claimedBy = null;
+    exitPath(state, c);
+  }
+}
+
 function updateCustomer(state, c, dt) {
   const L = state.layout;
   switch (c.state) {
@@ -258,16 +271,21 @@ const LOOKS = {
   ],
 };
 
+// 出勤時間：開店の1時間前〜閉店まで。閉店後はお客さんがいなくなってから裏口で帰る
+const workTime = (clock) => clock >= ARRIVE_MIN && clock < CLOSE_MIN;
+
 function makeWorker(state, role, index) {
   const L = state.layout;
   const spot = role === 'manager' ? L.managerIdle : role === 'kitchen' ? L.kitchenIdle[index] : L.hallIdle[index];
+  const off = !workTime(state.clock);
   return {
     id: newId(state),
     kind: 'worker',
     role,
     index,
-    x: spot.x,
-    y: spot.y,
+    shift: off ? 'off' : 'on', // on=勤務中 / leaving=帰宅中 / off=不在 / arriving=出勤中
+    x: off ? L.backOutside.x : spot.x,
+    y: off ? L.backOutside.y : spot.y,
     path: [],
     task: null,
     phase: null,
@@ -475,12 +493,41 @@ function chooseAutoTask(state, w) {
 
 function idleSpot(state, w) {
   const L = state.layout;
-  if (w.role === 'manager') return L.managerIdle;
+  if (w.role === 'manager') return state.clock < OPEN_MIN ? L.deskSeat : L.managerIdle; // 開店前は自分の机
   return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % 5];
 }
 
 function updateWorker(state, w, dt) {
   const speed = SPEED[w.role];
+  const L = state.layout;
+  if (w.shift === 'off') {
+    // 開店1時間前になったら裏口から入ってくる
+    if (workTime(state.clock)) {
+      w.shift = 'arriving';
+      w.x = L.backOutside.x;
+      w.y = L.backOutside.y;
+      w.path = findPath(L, w, idleSpot(state, w));
+      w.sitting = false;
+    }
+    return;
+  }
+  if (w.shift === 'arriving' || w.shift === 'leaving') {
+    if (move(w, dt, speed)) {
+      if (w.shift === 'leaving') {
+        w.shift = 'off';
+        w.x = L.backOutside.x;
+        w.y = L.backOutside.y;
+      } else w.shift = 'on';
+    }
+    return;
+  }
+  // 閉店後、お客さんがいなくなって仕事も終わったら裏口から帰る
+  if (!workTime(state.clock) && !w.task && !w.queue.length && !state.customers.length) {
+    w.shift = 'leaving';
+    w.sitting = false;
+    w.path = [...findPath(L, w, L.backDoor), { ...L.backOutside }];
+    return;
+  }
   if (w.task && !taskValid(state, w.task)) abortTask(state, w);
 
   if (!w.task) {
@@ -529,7 +576,15 @@ function updateWorker(state, w, dt) {
     if (!w.moving && (Math.abs(w.x - spot.x) > 0.01 || Math.abs(w.y - spot.y) > 0.01)) {
       if (!w.dest || w.dest.x !== spot.x || w.dest.y !== spot.y || !w.path.length) setDest(state, w, spot);
     }
-    if (move(w, dt, speed) && w.role !== 'kitchen') w.faceBack = false;
+    const arrived = move(w, dt, speed);
+    if (w.role === 'manager' && arrived && Math.hypot(w.x - L.deskSeat.x, w.y - L.deskSeat.y) < 0.05 && spot === L.deskSeat) {
+      w.sitting = true; // 机のイスに座ってパソコンを見る
+      w.faceBack = true;
+      w.faceLeft = false;
+    } else {
+      w.sitting = false;
+      if (arrived && w.role !== 'kitchen') w.faceBack = false;
+    }
   }
 }
 
@@ -545,6 +600,7 @@ export function rebuildLayout(state) {
     } else if (c.state === 'leaving') exitPath(state, c);
   }
   for (const w of state.workers) {
+    if (w.shift && w.shift !== 'on') continue;
     if (w.task && w.phase === 'walk' && taskValid(state, w.task)) setDest(state, w, taskTarget(state, w.task));
     else if (!w.task) {
       w.path = [];
@@ -563,6 +619,7 @@ function stepClock(state, dt) {
   if (next >= 1440) next -= 1440;
   state.clock = next;
   const crossed = (t) => prev < t && next >= t;
+  if (crossed(FAST_START_MIN)) sendHomeCustomers(state);
   if (prev < OPEN_MIN && next >= OPEN_MIN) {
     state.day += 1;
     state.spawnTimer = 2;

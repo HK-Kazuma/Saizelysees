@@ -3,12 +3,14 @@
 //   歩道(1) → 道路(2) → 外側の歩道(1) → 芝生
 import { P, fillPoly, isoBox, hash } from './pixel.js';
 import { STORE_SIZES } from '../data/shop.js';
+import { BACK_ROWS } from '../game/layout.js';
 
 // 土地は最大サイズの店が建つ広さで固定。道路はその外周をぐるっと一周する。
 // 店が拡張されても道路・街路樹は動かず、店が空き地に広がっていく。
 export const WORLD = {
   cols: Math.max(...STORE_SIZES.map((s) => s.cols)),
   rows: Math.max(...STORE_SIZES.map((s) => s.rows)),
+  yMin: -BACK_ROWS, // 奥の休憩室ぶん、土地は奥にも広がる
 };
 // 画面に収める外側の余白（タイル数）= 歩道1 + 道路2 + 外側の歩道1
 export const OUT_M = 4;
@@ -30,19 +32,19 @@ function band(n) {
 }
 const PRIORITY = { R: 3, S: 2, O: 1, G: 0 };
 
-// 土地の外周からの距離（土地の中は -1）
-function outDist(n, size) {
-  if (n < 0) return -n - 1;
-  if (n >= size) return n - size;
+// 土地の外周からの距離（土地の中は -1）。lo〜hi が土地の範囲
+function outDist(n, lo, hi) {
+  if (n < lo) return lo - n - 1;
+  if (n >= hi) return n - hi;
   return -1;
 }
 
 export function tileDist(x, y) {
-  return { a: outDist(y, WORLD.rows), b: outDist(x, WORLD.cols) };
+  return { a: outDist(y, WORLD.yMin, WORLD.rows), b: outDist(x, 0, WORLD.cols) };
 }
 
 export function tileType(L, x, y) {
-  if (x >= 0 && y >= 0 && x < L.cols && y < L.rows) return null; // 建物の中
+  if (x >= 0 && y >= WORLD.yMin && x < L.cols && y < L.rows) return null; // 建物の中
   const { a: da, b: db } = tileDist(x, y);
   const a = band(da), b = band(db);
   if (!a && !b) return 'G'; // 空き地
@@ -80,7 +82,7 @@ function speckle(g, x, y, n, colors, seed) {
 
 // ───────────────────────── 地面 ─────────────────────────
 export function drawGround(g, L, cw, ch) {
-  for (let y = -R; y < WORLD.rows + R; y++) {
+  for (let y = WORLD.yMin - R; y < WORLD.rows + R; y++) {
     for (let x = -R; x < WORLD.cols + R; x++) {
       const t = tileType(L, x, y);
       if (!t) continue;
@@ -103,7 +105,7 @@ export function drawGround(g, L, cw, ch) {
   }
 
   // 縁石・路面の線
-  for (let y = -R; y < WORLD.rows + R; y++) {
+  for (let y = WORLD.yMin - R; y < WORLD.rows + R; y++) {
     for (let x = -R; x < WORLD.cols + R; x++) {
       const t = tileType(L, x, y);
       if (!t || !visible(P(x + 0.5, y + 0.5), cw, ch, 40, 20, 20)) continue;
@@ -119,7 +121,7 @@ export function drawGround(g, L, cw, ch) {
         const alongY = fb >= 1 && fb <= 2 && !(fa >= 1 && fa <= 2); // 左・右の道
         // センターライン（道路の真ん中の境目）
         if (alongX && fa === 1 && mod(x, 2) === 0) {
-          const ev = y >= WORLD.rows ? y + 1 : y;
+          const ev = y >= WORLD.rows ? y + 1 : y; // 手前の道は下の辺、奥の道は上の辺
           quad(g, x + 0.15, ev - 0.07, x + 0.85, ev + 0.07, K.yellow);
         }
         if (alongY && fb === 1 && mod(y, 2) === 0) {
@@ -232,9 +234,9 @@ export const LAMP_H = 40;
 export function lampSpots() {
   const spots = [];
   for (let t = 3.5; t < WORLD.cols; t += 5) {
-    spots.push({ u: t, v: WORLD.rows + 0.35 }, { u: t, v: -0.65 });
+    spots.push({ u: t, v: WORLD.rows + 0.35 }, { u: t, v: WORLD.yMin - 0.65 });
   }
-  for (let t = 3.5; t < WORLD.rows; t += 5) {
+  for (let t = WORLD.yMin + 3.5; t < WORLD.rows; t += 5) {
     spots.push({ u: WORLD.cols + 0.35, v: t }, { u: -0.65, v: t });
   }
   return spots;
@@ -257,7 +259,7 @@ export function drawOutside(g, L, cw, ch, phase) {
     if (behind === (phase === 'back')) items.push({ depth: u + v, fn });
   };
   const WC = WORLD.cols, WR = WORLD.rows;
-  const lo = -0.8, hiU = WC + 0.8, hiV = WR + 0.8; // レールの位置（歩道の車道側）
+  const lo = -0.8, loV = WORLD.yMin - 0.8, hiU = WC + 0.8, hiV = WR + 0.8; // レールの位置（歩道の車道側）
   const steel2 = { top: '#9aa2ac', left: '#7a828c', right: '#6a727c' };
 
   // ガードレール（歩道と車道の境目を一周）
@@ -274,7 +276,7 @@ export function drawOutside(g, L, cw, ch, phase) {
     }
   };
   const railY = (u, flip) => {
-    for (let v0 = lo; v0 < hiV - 0.01; v0 += 1) {
+    for (let v0 = loV; v0 < hiV - 0.01; v0 += 1) {
       const len = Math.min(1, hiV - v0);
       if (!visible(P(u, v0), cw, ch, 60, 60, 40)) continue;
       add(u, v0 + len / 2, () => {
@@ -285,17 +287,17 @@ export function drawOutside(g, L, cw, ch, phase) {
       });
     }
   };
-  railX(lo, true);
+  railX(loV, true);
   railX(hiV, false);
   railY(lo, true);
   railY(hiU, false);
   // 街灯
   for (const l of lampSpots()) add(l.u, l.v, () => drawStreetLamp(g, l.u, l.v));
   // 角の最後の支柱
-  for (const [u, v] of [[hiU, hiV], [lo, hiV], [hiU, lo], [lo, lo]]) add(u, v + 0.1, () => postAt(g, u, v));
+  for (const [u, v] of [[hiU, hiV], [lo, hiV], [hiU, loV], [lo, loV]]) add(u, v + 0.1, () => postAt(g, u, v));
 
   // 外側の歩道の街路樹と植え込み
-  for (let y = -R; y < WR + R; y++) {
+  for (let y = WORLD.yMin - R; y < WR + R; y++) {
     for (let x = -R; x < WC + R; x++) {
       if (tileType(L, x, y) !== 'O') continue;
       if (!visible(P(x + 0.5, y + 0.5), cw, ch, 60, 90, 40)) continue;
