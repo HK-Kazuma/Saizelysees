@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import InstallGuide, { mobilePlatform } from './InstallGuide.jsx';
 
 async function goFullscreen() {
   try {
@@ -11,7 +12,10 @@ async function goFullscreen() {
 
 export default function Settings({ state, act, onClose }) {
   const [confirm, setConfirm] = useState(false);
+  const [guide, setGuide] = useState(false);
   const s = state.stats;
+  // PC など判定できない環境では iPhone 向けの手順を見せる
+  if (guide) return <InstallGuide platform={mobilePlatform() || 'ios'} fromMenu onDone={() => setGuide(false)} />;
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal settings" onClick={(e) => e.stopPropagation()}>
@@ -37,6 +41,7 @@ export default function Settings({ state, act, onClose }) {
           </div>
           <div className="settings-actions">
             <button className="hud-btn" onClick={goFullscreen}>全画面＆横向き</button>
+            <button className="hud-btn" onClick={() => setGuide(true)}>ホーム画面に追加の方法</button>
             {!confirm ? (
               <button className="hud-btn danger" onClick={() => setConfirm(true)}>データをリセット</button>
             ) : (

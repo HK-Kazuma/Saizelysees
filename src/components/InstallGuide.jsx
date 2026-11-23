@@ -51,7 +51,7 @@ function HomeIcon() {
   );
 }
 
-export default function InstallGuide({ platform, onDone }) {
+export default function InstallGuide({ platform, onDone, fromMenu = false }) {
   const ios = platform === 'ios';
   return (
     <div className="guide-screen">
@@ -111,9 +111,9 @@ export default function InstallGuide({ platform, onDone }) {
 
       <div className="guide-foot">
         <button type="button" className="guide-skip" onClick={onDone}>
-          スキップしてゲームへ ▶
+          {fromMenu ? '◀ もどる' : 'スキップしてゲームへ ▶'}
         </button>
-        <p className="guide-note">すでに追加ずみ・ホーム画面から開いている人はスキップしてね</p>
+        {!fromMenu && <p className="guide-note">すでに追加ずみ・ホーム画面から開いている人はスキップしてね</p>}
       </div>
     </div>
   );
