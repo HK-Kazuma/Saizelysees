@@ -37,6 +37,7 @@ export default function HUD({ state, act, onOpen }) {
       <div className="hud-chip small" title="店の魅力（来店ペースと待てる時間が伸びる）">♥{appeal(state)}</div>
       <div className="hud-chip small" title="来店中 / 席数">席 {Math.min(guests, seats)}/{seats}</div>
       <div className="hud-spacer" />
+      <button className="hud-btn gear" onClick={() => onOpen('audio')} title="サウンド設定" aria-label="サウンド設定">⚙</button>
       <button className={`hud-btn speed ${state.speed === 2 ? 'on' : ''}`} onClick={() => act({ type: 'SET_SPEED', speed: state.speed === 2 ? 1 : 2 })}>
         {state.speed === 2 ? '▶▶' : '▶'}
       </button>

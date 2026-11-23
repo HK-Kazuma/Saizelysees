@@ -11,8 +11,10 @@ import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
 import Gallery from './components/Gallery.jsx';
 import Settings from './components/Settings.jsx';
+import AudioSettings from './components/AudioSettings.jsx';
 import RotateHint from './components/RotateHint.jsx';
 import TitleScreen from './components/TitleScreen.jsx';
+import InstallGuide, { installGuidePlatform } from './components/InstallGuide.jsx';
 import { playBgm } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
 
@@ -22,6 +24,8 @@ export default function App() {
   const [modal, setModal] = useState(null); // 'shop' | 'recipes' | 'gallery' | 'settings'
   const [cookingId, setCookingId] = useState(null);
   const [started, setStarted] = useState(false);
+  const [showGuide, setShowGuide] = useState(false); // ホーム画面追加の案内（スマホのブラウザ時のみ）
+  const guidePlatform = useMemo(() => installGuidePlatform(), []);
   const [toasts, setToasts] = useState([]);
   const [poster, setPoster] = useState({ small: null, large: null });
   const toastId = useRef(0);
@@ -71,9 +75,17 @@ export default function App() {
   );
 
   if (!started) {
+    if (showGuide) {
+      return (
+        <>
+          <InstallGuide platform={guidePlatform} onDone={() => setStarted(true)} />
+          <RotateHint />
+        </>
+      );
+    }
     return (
       <>
-        <TitleScreen onStart={() => setStarted(true)} />
+        <TitleScreen onStart={() => (guidePlatform ? setShowGuide(true) : setStarted(true))} />
         <RotateHint />
       </>
     );
@@ -94,6 +106,7 @@ export default function App() {
       {modal === 'shop' && <ShopPanel state={state} act={act} onClose={() => setModal(null)} />}
       {modal === 'recipes' && <RecipeBook state={state} onClose={() => setModal(null)} />}
       {modal === 'gallery' && <Gallery poster={poster.large} onClose={() => setModal(null)} />}
+      {modal === 'audio' && <AudioSettings onClose={() => setModal(null)} />}
       {modal === 'settings' && <Settings state={state} act={act} onClose={() => setModal(null)} />}
 
       <div className="toasts">

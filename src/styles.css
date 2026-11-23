@@ -111,6 +111,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .hud-btn:active { transform: translateY(2px); }
 .hud-btn.primary { background: var(--green); color: var(--white); }
 .hud-btn.speed.on { background: var(--gold); }
+.hud-btn.gear { font-size: 17px; padding: 2px 9px; }
 .hud-btn.danger { background: var(--red); color: var(--white); }
 
 /* ───────── メイン ───────── */
@@ -497,4 +498,110 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 @keyframes title-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
+}
+
+/* サウンド設定 */
+.modal.audio { width: min(340px, 92vw); }
+.audio-body { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.audio-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.audio-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--green); }
+.audio-row output { width: 3em; text-align: right; }
+
+/* ───────── ホーム画面追加の案内 ───────── */
+.guide-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 14px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 14px);
+  background: repeating-linear-gradient(0deg, #2e1912 0 10px, #2a1610 10px 11px);
+  color: var(--cream);
+  animation: slide-up 0.35s ease both;
+}
+.guide-top { text-align: center; flex: 0 0 auto; }
+.guide-title { margin: 0; font-size: 20px; color: var(--gold); text-shadow: 2px 2px 0 var(--ink); letter-spacing: 1px; }
+.guide-lead { margin: 2px 0 0; font-size: 12px; color: var(--cream-d); }
+.guide-steps { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.guide-step {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink);
+}
+.guide-step-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: bold; line-height: 1.3; }
+.guide-num {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  background: var(--red);
+  color: var(--white);
+  box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink);
+}
+.guide-inline { width: 15px; height: 15px; vertical-align: -3px; image-rendering: pixelated; background: #3b2f4a; }
+.guide-shot {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1b1220;
+  overflow: hidden;
+}
+.guide-shot img { max-width: 100%; max-height: 100%; image-rendering: pixelated; display: block; }
+/* ドット風の「ここをタップ」枠（点滅） */
+.guide-mark {
+  position: absolute;
+  border: 3px solid var(--gold);
+  box-shadow: 0 0 0 2px var(--red), inset 0 0 0 2px var(--red);
+  animation: blink 0.9s steps(2, jump-none) infinite;
+  pointer-events: none;
+}
+.guide-text-shot { flex-direction: column; gap: 6px; color: var(--cream); text-align: center; padding: 6px; }
+.guide-text-shot small { font-size: 10px; line-height: 1.4; color: var(--cream-d); }
+.guide-dots, .guide-plus { font-size: 34px; line-height: 1; color: var(--gold); text-shadow: 2px 2px 0 var(--red-d); }
+.guide-homeicon { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9px; color: var(--white); animation: wobble 1.2s steps(2) infinite; }
+/* アプリアイコン（ファビコンと同じ配色をドットで） */
+.guide-app {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  background: var(--red);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+  padding: 0 7px;
+  box-shadow: 0 0 0 2px var(--cream);
+}
+.guide-app i { display: block; }
+.guide-app i:nth-child(1) { height: 0; }
+.guide-app i:nth-child(2) { height: 10px; background: var(--cream); }
+.guide-app i:nth-child(3) { height: 5px; background: var(--green); }
+.guide-foot { flex: 0 0 auto; text-align: center; }
+.guide-skip {
+  padding: 8px 22px;
+  font-size: 15px;
+  font-weight: bold;
+  color: var(--white);
+  background: var(--green);
+  border: none;
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -4px 0 0 var(--green-d);
+}
+.guide-skip:active { transform: translateY(2px); }
+.guide-note { margin: 6px 0 0; font-size: 10px; color: var(--cream-d); }
+/* 縦持ちのときは RotateHint が前面に出る */
+@media (max-height: 340px) {
+  .guide-title { font-size: 16px; }
+  .guide-lead { display: none; }
+  .guide-step-head { font-size: 11px; }
 }

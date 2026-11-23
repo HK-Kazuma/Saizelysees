@@ -42,7 +42,11 @@ let current = null; // { name, timer, step, nextTime }
 let volume = 0.5;
 let muted = false;
 
-try { muted = localStorage.getItem('bgm-muted') === '1'; } catch { /* noop */ }
+try {
+  muted = localStorage.getItem('bgm-muted') === '1';
+  const v = parseFloat(localStorage.getItem('bgm-volume'));
+  if (!Number.isNaN(v)) volume = Math.min(1, Math.max(0, v));
+} catch { /* noop */ }
 
 function ensureCtx() {
   if (!ctx) {
@@ -107,5 +111,15 @@ export function isMuted() {
 export function setMuted(v) {
   muted = v;
   try { localStorage.setItem('bgm-muted', v ? '1' : '0'); } catch { /* noop */ }
+  if (master) master.gain.value = muted ? 0 : volume * 0.25;
+}
+
+export function getVolume() {
+  return volume;
+}
+
+export function setVolume(v) {
+  volume = Math.min(1, Math.max(0, v));
+  try { localStorage.setItem('bgm-volume', String(volume)); } catch { /* noop */ }
   if (master) master.gain.value = muted ? 0 : volume * 0.25;
 }
