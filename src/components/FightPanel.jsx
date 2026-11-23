@@ -3,6 +3,7 @@ import { getCharSprite } from '../render/sprites.js';
 
 // クレーマー対応：店長（お玉）とクレーマーの1対1の横画面ミニ格闘ゲーム。
 // お玉を3回当てれば撃退成功。店長の体力は3つで、負けると所持金の半分を持っていかれる。
+// クレーマーはお皿を投げてくる。皿に当たっても、クレーマー本体に触れてもダメージ。ジャンプで皿をよけられ、お玉で皿を叩き落とせる。
 const W = 320;
 const H = 160;
 const GROUND = 142;
@@ -17,7 +18,11 @@ const SWING_TIME = 0.32; // お玉を振り切るまで
 const HIT_FROM = 0.09; // 判定が出る時間帯
 const HIT_TO = 0.21;
 const PLAYER_REACH = 60;
-const ENEMY_REACH = 56;
+const GRAVITY = 520;
+const JUMP_V = 230; // 跳ぶ高さは約51px
+const THROW_DIST = 115; // この距離まで近づいたら皿を投げる
+const PLATE_SPEED = 125;
+const PLATE_HEIGHTS = [10, 26]; // 低い皿は大きく、高い皿は早めに跳ぶ必要がある
 const MIN_GAP = 26; // 重ならない最小距離
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -28,10 +33,28 @@ function newFight() {
     intro: 1.1, // 「ファイト！」表示中は動けない
     result: null, // 'win' | 'lose'
     resultT: 0,
-    p: { x: 70, hp: PLAYER_HP, face: 1, atk: -1, hitDone: false, inv: 0, kb: 0, walk: 0, moving: false },
+    p: { x: 70, y: 0, vy: 0, hp: PLAYER_HP, face: 1, atk: -1, hitDone: false, inv: 0, kb: 0, walk: 0, moving: false },
     e: { x: 250, hp: ENEMY_HP, face: -1, mode: 'approach', timer: 0, stun: 0, hitDone: false, kb: 0, walk: 0, moving: false, wait: 0.5 },
+    plates: [],
     fx: [],
   };
+}
+
+// 店長がダメージを受ける。倒れたら true
+function hurtPlayer(f, dir, onHit) {
+  const p = f.p;
+  p.hp--;
+  p.inv = 1.3;
+  p.kb = dir * 34;
+  p.atk = -1;
+  f.fx.push({ x: p.x, y: GROUND - 62 - p.y, text: 'いたっ！', life: 0.6, color: '#ff7a6a' });
+  onHit('player');
+  if (p.hp <= 0) {
+    f.result = 'lose';
+    f.resultT = 0;
+    return true;
+  }
+  return false;
 }
 
 function stepFight(f, dt, input, onHit) {
@@ -54,6 +77,16 @@ function stepFight(f, dt, input, onHit) {
     const d = Math.sign(p.kb) * Math.min(Math.abs(p.kb), 220 * dt);
     p.x += d;
     p.kb -= d;
+  }
+  if (input.jumpQueued && p.y <= 0 && p.vy <= 0) p.vy = JUMP_V;
+  input.jumpQueued = false;
+  if (p.y > 0 || p.vy > 0) {
+    p.vy -= GRAVITY * dt;
+    p.y += p.vy * dt;
+    if (p.y <= 0) {
+      p.y = 0;
+      p.vy = 0;
+    }
   }
   if (p.atk >= 0) {
     p.atk += dt;
@@ -91,6 +124,17 @@ function stepFight(f, dt, input, onHit) {
     }
   }
 
+  // お玉でお皿を叩き落とせる
+  if (p.atk >= HIT_FROM && p.atk <= HIT_TO) {
+    for (const pl of f.plates) {
+      const d = (pl.x - p.x) * p.face;
+      if (!pl.dead && d > -6 && d < PLAYER_REACH) {
+        pl.dead = true;
+        f.fx.push({ x: pl.x, y: GROUND - pl.h - 10, text: 'パリン！', life: 0.5, color: '#9ad0f0' });
+      }
+    }
+  }
+
   // ── クレーマー ──
   e.moving = false;
   if (e.kb) {
@@ -101,49 +145,34 @@ function stepFight(f, dt, input, onHit) {
   const gap = Math.abs(p.x - e.x);
   e.face = p.x >= e.x ? 1 : -1;
   e.timer -= dt;
+  // クレーマー本体に触れてもダメージ（高くジャンプしていれば頭上を越えられる）
+  if (e.mode !== 'stun' && gap <= MIN_GAP + 4 && p.y < 22 && p.inv <= 0) {
+    if (hurtPlayer(f, -e.face, onHit)) return;
+  }
   switch (e.mode) {
     case 'approach':
       if (e.wait > 0) {
         e.wait -= dt;
-      } else if (gap > ENEMY_REACH - 6) {
+      } else if (gap > THROW_DIST) {
         e.x += e.face * ENEMY_SPEED * dt;
         e.moving = true;
       } else {
         e.mode = 'windup';
-        e.timer = 0.62;
-      }
-      break;
-    case 'windup': // 振りかぶり。ここで下がるか、先に殴れば止められる
-      if (e.timer <= 0) {
-        e.mode = 'strike';
-        e.timer = 0.2;
-        e.hitDone = false;
-      }
-      break;
-    case 'strike':
-      if (!e.hitDone && p.inv <= 0 && gap < ENEMY_REACH) {
-        e.hitDone = true;
-        p.hp--;
-        p.inv = 1.3;
-        p.kb = -e.face * 34;
-        p.atk = -1;
-        f.fx.push({ x: p.x, y: GROUND - 62, text: 'いたっ！', life: 0.6, color: '#ff7a6a' });
-        onHit('player');
-        if (p.hp <= 0) {
-          f.result = 'lose';
-          f.resultT = 0;
-          return;
-        }
-      }
-      if (e.timer <= 0) {
-        e.mode = 'recover';
         e.timer = 0.6;
+        e.nextH = PLATE_HEIGHTS[Math.floor(Math.random() * PLATE_HEIGHTS.length)];
+      }
+      break;
+    case 'windup': // お皿を振りかぶる。投げる瞬間に向かって飛んでくる
+      if (e.timer <= 0) {
+        f.plates.push({ x: e.x + e.face * 14, h: e.nextH, vx: e.face * PLATE_SPEED, rot: 0, dead: false });
+        e.mode = 'recover';
+        e.timer = 0.75;
       }
       break;
     case 'recover':
       if (e.timer <= 0) {
         e.mode = 'approach';
-        e.wait = 0.15 + Math.random() * 0.45;
+        e.wait = 0.1 + Math.random() * 0.4;
       }
       break;
     case 'stun':
@@ -155,6 +184,17 @@ function stepFight(f, dt, input, onHit) {
     default:
       break;
   }
+
+  // 飛んでくるお皿
+  for (const pl of f.plates) {
+    pl.x += pl.vx * dt;
+    pl.rot += dt * 14;
+    if (!pl.dead && p.inv <= 0 && Math.abs(pl.x - p.x) < 11 && pl.h >= p.y - 4 && pl.h <= p.y + 44) {
+      pl.dead = true;
+      if (hurtPlayer(f, -Math.sign(pl.vx), onHit)) return;
+    }
+  }
+  f.plates = f.plates.filter((pl) => !pl.dead && pl.x > -12 && pl.x < W + 12);
 
   // 重ならないように、画面の外に出ないように
   const minGap = MIN_GAP;
@@ -223,6 +263,25 @@ function drawLadle(g, x, y, face, angle) {
   g.restore();
 }
 
+function drawPlate(g, x, y, rot) {
+  g.save();
+  g.translate(x, y);
+  g.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(rot)));
+  g.fillStyle = '#2b1a14';
+  g.beginPath();
+  g.arc(0, 0, 9, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#fbf6ea';
+  g.beginPath();
+  g.arc(0, 0, 7.5, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#d8452f';
+  g.beginPath();
+  g.arc(0, 0, 4, 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+}
+
 function drawFighter(g, f, who, look, time) {
   const s = f[who];
   const isP = who === 'p';
@@ -232,10 +291,9 @@ function drawFighter(g, f, who, look, time) {
   const w = sprite.width * SCALE;
   const h = sprite.height * SCALE;
   let dx = 0;
-  let dy = 0;
+  let dy = isP ? -Math.round(s.y) : 0;
   if (!isP && s.mode === 'windup') dx = Math.round(Math.sin(time * 60) * 1.5);
   if (!isP && s.mode === 'stun') dx = Math.round(Math.sin(time * 50) * 2);
-  if (!isP && s.mode === 'strike') dx = s.face * 6;
   if (isP && s.atk >= 0) dx = s.face * Math.round(Math.sin((s.atk / SWING_TIME) * Math.PI) * 6);
   const blink = isP && s.inv > 0 && Math.floor(time * 20) % 2 === 0;
   const x = Math.round(s.x - w / 2 + dx);
@@ -251,7 +309,7 @@ function drawFighter(g, f, who, look, time) {
 
   if (isP) {
     const hx = Math.round(s.x + s.face * 14 + dx);
-    const hy = GROUND - 30;
+    const hy = GROUND - 30 - Math.round(s.y);
     let ang;
     if (s.atk < 0) ang = -0.5;
     else {
@@ -262,21 +320,12 @@ function drawFighter(g, f, who, look, time) {
   } else {
     const fx = Math.round(s.x + s.face * 14 + dx);
     if (s.mode === 'windup') {
-      // 拳を振りかぶる
-      g.fillStyle = '#2b1a14';
-      g.fillRect(fx - 5, GROUND - 78, 11, 11);
-      g.fillStyle = '#e9b98e';
-      g.fillRect(fx - 4, GROUND - 77, 9, 9);
+      // お皿を振りかぶる（高さは投げる皿の高さに合わせる）
       const flash = Math.floor(time * 14) % 2 === 0;
+      drawPlate(g, fx, GROUND - (s.nextH > 18 ? 52 : 40), 0);
       g.fillStyle = flash ? '#e0402a' : '#ffd23a';
       g.fillRect(Math.round(s.x) - 2, GROUND - 100, 5, 12);
       g.fillRect(Math.round(s.x) - 2, GROUND - 84, 5, 4);
-    } else if (s.mode === 'strike') {
-      const reach = s.face * 34;
-      g.fillStyle = '#2b1a14';
-      g.fillRect(Math.min(fx, fx + reach) - 1, GROUND - 52, Math.abs(reach) + 12, 13);
-      g.fillStyle = '#e9b98e';
-      g.fillRect(Math.min(fx, fx + reach), GROUND - 51, Math.abs(reach) + 10, 11);
     } else if (s.mode === 'stun') {
       g.fillStyle = '#ffd23a';
       for (let i = 0; i < 3; i++) {
@@ -292,6 +341,7 @@ function draw(g, f, look, time) {
   drawBackground(g);
   drawFighter(g, f, 'e', look, time);
   drawFighter(g, f, 'p', MANAGER_LOOK, time);
+  for (const pl of f.plates) drawPlate(g, Math.round(pl.x), GROUND - pl.h - 4, pl.rot);
   g.font = "bold 12px 'DotGothic16', sans-serif";
   g.textAlign = 'center';
   for (const x of f.fx) {
@@ -314,7 +364,7 @@ function draw(g, f, look, time) {
 export default function FightPanel({ state, customerId, act, onClose }) {
   const canvasRef = useRef(null);
   const fightRef = useRef(null);
-  const inputRef = useRef({ left: false, right: false, attackQueued: false });
+  const inputRef = useRef({ left: false, right: false, attackQueued: false, jumpQueued: false });
   const lookRef = useRef(state.customers.find((c) => c.id === customerId)?.look || { hair: 2, shirt: 6, pants: 0, skin: 0, long: false });
   const [hp, setHp] = useState({ p: PLAYER_HP, e: ENEMY_HP });
   const [result, setResult] = useState(null); // { won, lost }
@@ -352,7 +402,9 @@ export default function FightPanel({ state, customerId, act, onClose }) {
     const keys = { ArrowLeft: 'left', a: 'left', A: 'left', ArrowRight: 'right', d: 'right', D: 'right' };
     const down = (e) => {
       if (keys[e.key]) input[keys[e.key]] = true;
-      else if ([' ', 'z', 'Z', 'j', 'J', 'Enter'].includes(e.key)) {
+      else if (['ArrowUp', 'w', 'W'].includes(e.key)) {
+        if (!e.repeat) input.jumpQueued = true;
+      } else if ([' ', 'z', 'Z', 'j', 'J', 'Enter'].includes(e.key)) {
         if (!e.repeat) input.attackQueued = true;
       } else return;
       e.preventDefault();
@@ -416,8 +468,9 @@ export default function FightPanel({ state, customerId, act, onClose }) {
           <div className="fight-move">
             <button className="fight-btn" {...hold('left')}>◀</button>
             <button className="fight-btn" {...hold('right')}>▶</button>
+            <button className="fight-btn" onPointerDown={(e) => { e.preventDefault(); inputRef.current.jumpQueued = true; }}>▲</button>
           </div>
-          <div className="fight-tip">お玉を3回当てれば勝ち！ 振りかぶったら下がってかわそう</div>
+          <div className="fight-tip">お玉を3回当てれば勝ち！ 飛んでくるお皿はジャンプでよけるか、お玉で叩き落とそう</div>
           <button
             className="fight-btn attack"
             onPointerDown={(e) => {
