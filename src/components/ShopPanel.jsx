@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { tableSlots } from '../game/layout.js';
-import { EQUIPMENT, STAFF, DECOR, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
+import { EQUIPMENT, EQUIP_MAP, STAFF, DECOR, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { RECIPES } from '../data/recipes.js';
+
+const SELFREG = EQUIP_MAP.selfreg;
 
 const TABS = [
   { id: 'equip', name: '設備' },
@@ -55,7 +57,7 @@ export default function ShopPanel({ state, act, onClose }) {
         </div>
         <div className="shop-list">
           {tab === 'equip' &&
-            EQUIPMENT.map((e) => {
+            EQUIPMENT.filter((e) => e.id !== 'selfreg').map((e) => {
               const cur = state.equipment[e.id];
               const enables = RECIPES.filter((r) => r.req.includes(e.id) && r.req.length === 1).length;
               if (!cur.owned) {
@@ -98,6 +100,9 @@ export default function ShopPanel({ state, act, onClose }) {
                 price={TABLE_PRICE(state.tables)} label="置く" done={state.tables >= state.layout.tableCapacity}
                 disabled={state.coins < TABLE_PRICE(state.tables)} onBuy={() => act({ type: 'BUY_TABLE' })}
                 {...(state.tables >= state.layout.tableCapacity ? { label: next ? '拡張で増設' : '満席' } : {})} />
+              <Item title={SELFREG.name} desc={SELFREG.desc} price={SELFREG.price} label="導入する"
+                done={state.equipment.selfreg.owned} locked={state.level < SELFREG.lv ? `Lv${SELFREG.lv}で解放` : null}
+                disabled={state.coins < SELFREG.price} onBuy={() => act({ type: 'BUY_EQUIP', id: 'selfreg' })} />
               {next ? (
                 <Item title={`店舗拡張「${next.name}」`} desc={`${next.cols}×${next.rows}マスに広げる。テーブル最大${tableSlots(next.cols, next.rows).length}卓・スタッフ各${next.staffMax}人まで`}
                   price={next.price} label="拡張する" locked={state.level < next.lv ? `Lv${next.lv}で解放` : null}

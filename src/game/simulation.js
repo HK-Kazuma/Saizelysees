@@ -226,6 +226,19 @@ function updateCustomer(state, c, dt) {
       if (move(c, dt, SPEED.customer)) {
         c.state = 'atRegister';
         faceToward(c, L.register);
+        c.timer = 0.8; // 無人レジの操作時間
+      }
+      break;
+    case 'atRegister':
+      // 無人レジがあれば、お客さんが自分で会計して帰る（店員が担当中なら任せる）
+      if (state.equipment.selfreg?.owned && !c.claimedBy) {
+        c.timer -= dt;
+        if (c.timer <= 0) {
+          pay(state, c);
+          c.state = 'leaving';
+          c.happy = true;
+          exitPath(state, c);
+        }
       }
       break;
     case 'leaving':
