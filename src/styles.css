@@ -523,7 +523,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .guide-top { text-align: center; flex: 0 0 auto; }
 .guide-title { margin: 0; font-size: 20px; color: var(--gold); text-shadow: 2px 2px 0 var(--ink); letter-spacing: 1px; }
 .guide-lead { margin: 2px 0 0; font-size: 12px; color: var(--cream-d); }
-.guide-steps { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.guide-steps { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.15fr 1.7fr 0.8fr; gap: 12px; }
 .guide-step {
   min-width: 0;
   min-height: 0;
@@ -557,7 +557,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   background: #1b1220;
   overflow: hidden;
 }
-.guide-shot img { max-width: 100%; max-height: 100%; image-rendering: pixelated; display: block; }
+/* 画像と枠を同じ箱に入れ、枠の % 位置が画像基準になるようにする */
+.guide-pic { position: relative; width: 100%; line-height: 0; }
+.guide-pic img { width: 100%; height: auto; image-rendering: pixelated; display: block; }
 /* ドット風の「ここをタップ」枠（点滅） */
 .guide-mark {
   position: absolute;
@@ -604,4 +606,50 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   .guide-title { font-size: 16px; }
   .guide-lead { display: none; }
   .guide-step-head { font-size: 11px; }
+}
+
+/* 「快適に遊ぶ方法！」ボタン（STARTの上） */
+.title-help {
+  position: absolute;
+  left: 50%;
+  top: 64.5%;
+  transform: translateX(-50%);
+  padding: 0.7cqw 2.4cqw;
+  border: 0.45cqw solid #3a1a10;
+  border-radius: 99px;
+  background: #fff4d6;
+  color: #7a2a1a;
+  font-family: var(--font);
+  font-weight: bold;
+  font-size: 2.6cqw;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 0.5cqw 0 #3a1a10;
+  animation: help-float 2s ease-in-out infinite;
+}
+.title-help:active { animation: none; transform: translateX(-50%) translateY(0.4cqw); box-shadow: none; }
+@keyframes help-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-1.1cqw); }
+}
+.title-help-back { z-index: 60; }
+.title-help-modal { width: min(460px, 94vw); }
+.help-body { padding: 10px 16px 16px; overflow-y: auto; font-size: 14px; line-height: 1.6; }
+.help-body p { margin: 0 0 8px; }
+.help-body ol, .help-body ul { margin: 2px 0 10px; padding-left: 22px; }
+.help-key { display: inline-block; padding: 0 5px; background: var(--white); border: 1px solid var(--ink); }
+
+/* タップできるよ、の合図（左上から指さす手。ボタンへ向かってちょんちょん動く） */
+.help-hand {
+  position: absolute;
+  left: -4.2cqw;
+  top: -4.4cqw;
+  width: 4.6cqw;
+  pointer-events: none;
+  animation: hand-tap 1s ease-in-out infinite;
+}
+.help-hand svg { display: block; width: 100%; height: auto; transform: rotate(135deg); }
+@keyframes hand-tap {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(0.9cqw, 0.9cqw); }
 }

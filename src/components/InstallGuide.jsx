@@ -74,14 +74,18 @@ export default function InstallGuide({ platform, onDone, fromMenu = false }) {
               }
             >
               <div className="guide-shot">
-                <img src={shareBarUrl} alt="Safariの右上にある共有ボタン" />
-                <span className="guide-mark" style={{ left: '38%', top: '16%', width: '13%', height: '68%' }} />
+                <div className="guide-pic">
+                  <img src={shareBarUrl} alt="Safariの右上にある共有ボタン" />
+                  <span className="guide-mark" style={{ left: '9%', top: '8%', width: '22%', height: '80%' }} />
+                </div>
               </div>
             </Step>
             <Step n={2} title="「ホーム画面に追加」をタップ">
               <div className="guide-shot">
-                <img src={addHomeUrl} alt="共有メニューの「ホーム画面に追加」" />
-                <span className="guide-mark" style={{ left: '3%', top: '81%', width: '94%', height: '14%' }} />
+                <div className="guide-pic">
+                  <img src={addHomeUrl} alt="共有メニューの「ホーム画面に追加」" />
+                  <span className="guide-mark" style={{ left: '3%', top: '77%', width: '94%', height: '21%' }} />
+                </div>
               </div>
             </Step>
           </>
