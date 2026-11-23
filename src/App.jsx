@@ -12,6 +12,7 @@ import Effects from './components/Effects.jsx';
 import Gallery from './components/Gallery.jsx';
 import Settings from './components/Settings.jsx';
 import RotateHint from './components/RotateHint.jsx';
+import TitleScreen from './components/TitleScreen.jsx';
 import posterUrl from './assets/poster.jpg';
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
   const state = useGame(store);
   const [modal, setModal] = useState(null); // 'shop' | 'recipes' | 'gallery' | 'settings'
   const [cookingId, setCookingId] = useState(null);
+  const [started, setStarted] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [poster, setPoster] = useState({ small: null, large: null });
   const toastId = useRef(0);
@@ -52,6 +54,15 @@ export default function App() {
     },
     [act],
   );
+
+  if (!started) {
+    return (
+      <>
+        <TitleScreen onStart={() => setStarted(true)} />
+        <RotateHint />
+      </>
+    );
+  }
 
   return (
     <div className="app">
