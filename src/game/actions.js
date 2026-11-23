@@ -1,6 +1,6 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
 import { EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
-import { rebuildLayout, syncWorkers } from './simulation.js';
+import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
 import { createInitialState, clearSave } from './state.js';
 
 const fail = (msg) => ({ ok: false, msg });
@@ -19,7 +19,7 @@ export function applyAction(state, action) {
     // ── 接客（店長に指示を出す。店長は順番に動く） ──
     case 'TAKE_ORDER': {
       const c = state.customers.find((x) => x.id === action.customerId);
-      if (!c || c.state !== 'calling' || c.claimedBy) return fail('対応できません');
+      if (!c || c.state !== 'calling' || c.claimedBy || c.complainer) return fail('対応できません');
       const m = manager(state);
       c.claimedBy = m.id;
       m.queue.push({ type: 'take', customerId: c.id });
@@ -39,6 +39,29 @@ export function applyAction(state, action) {
       const m = manager(state);
       c.claimedBy = m.id;
       m.queue.push({ type: 'checkout', customerId: c.id });
+      return okMsg();
+    }
+
+    // ── クレーマー対応（格闘ミニゲーム） ──
+    case 'START_FIGHT': {
+      const c = state.customers.find((x) => x.id === action.customerId);
+      if (!c || !c.complainer || c.state !== 'calling' || c.claimedBy) return fail('対応できません');
+      c.state = 'fighting'; // 戦っている間は待ち時間が減らない
+      c.claimedBy = 'player';
+      return okMsg();
+    }
+    case 'CANCEL_FIGHT': {
+      const c = state.customers.find((x) => x.id === action.customerId);
+      if (c && c.state === 'fighting') {
+        c.state = 'calling';
+        c.claimedBy = null;
+      }
+      return okMsg();
+    }
+    case 'END_FIGHT': {
+      const c = state.customers.find((x) => x.id === action.customerId);
+      if (!c || c.state !== 'fighting') return okMsg();
+      resolveComplainer(state, c, !!action.won);
       return okMsg();
     }
 

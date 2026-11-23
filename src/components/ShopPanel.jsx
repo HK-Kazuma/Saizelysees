@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { tableSlots } from '../game/layout.js';
 import { EQUIPMENT, STAFF, DECOR, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { RECIPES } from '../data/recipes.js';
 
@@ -98,7 +99,7 @@ export default function ShopPanel({ state, act, onClose }) {
                 disabled={state.coins < TABLE_PRICE(state.tables)} onBuy={() => act({ type: 'BUY_TABLE' })}
                 {...(state.tables >= state.layout.tableCapacity ? { label: next ? '拡張で増設' : '満席' } : {})} />
               {next ? (
-                <Item title={`店舗拡張「${next.name}」`} desc={`${next.cols}×${next.rows}マスに広げる。テーブル最大${next.cols >= 12 ? (next.rows >= 11 ? 9 : 6) : 4}卓・スタッフ各${next.staffMax}人まで`}
+                <Item title={`店舗拡張「${next.name}」`} desc={`${next.cols}×${next.rows}マスに広げる。テーブル最大${tableSlots(next.cols, next.rows).length}卓・スタッフ各${next.staffMax}人まで`}
                   price={next.price} label="拡張する" locked={state.level < next.lv ? `Lv${next.lv}で解放` : null}
                   disabled={state.coins < next.price} onBuy={() => act({ type: 'EXPAND' })} />
               ) : (

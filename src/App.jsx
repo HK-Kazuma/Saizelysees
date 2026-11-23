@@ -6,6 +6,7 @@ import GameCanvas from './components/GameCanvas.jsx';
 import HUD from './components/HUD.jsx';
 import TaskPanel from './components/TaskPanel.jsx';
 import CookingPanel from './components/CookingPanel.jsx';
+import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
@@ -23,6 +24,7 @@ export default function App() {
   const state = useGame(store);
   const [modal, setModal] = useState(null); // 'shop' | 'recipes' | 'gallery' | 'settings'
   const [cookingId, setCookingId] = useState(null);
+  const [fightId, setFightId] = useState(null);
   const [started, setStarted] = useState(false);
   const [showGuide, setShowGuide] = useState(false); // ホーム画面追加の案内（スマホのブラウザ時のみ）
   const guidePlatform = useMemo(() => installGuidePlatform(), []);
@@ -74,6 +76,14 @@ export default function App() {
     [act],
   );
 
+  const openFight = useCallback(
+    (customerId) => {
+      const res = act({ type: 'START_FIGHT', customerId });
+      if (res.ok) setFightId(customerId);
+    },
+    [act],
+  );
+
   if (!started) {
     if (showGuide) {
       return (
@@ -96,11 +106,13 @@ export default function App() {
       <HUD state={state} act={act} onOpen={setModal} />
       <div className="main">
         <div className="stage">
-          <GameCanvas store={store} poster={poster.small} act={act} onCook={openCooking} onPoster={() => setModal('gallery')} />
+          <GameCanvas store={store} poster={poster.small} act={act} onCook={openCooking} onFight={openFight} onPoster={() => setModal('gallery')} />
           <Effects store={store} toast={toast} />
         </div>
-        <TaskPanel state={state} act={act} onCook={openCooking} />
+        <TaskPanel state={state} act={act} onCook={openCooking} onFight={openFight} />
       </div>
+
+      {fightId != null && <FightPanel state={state} customerId={fightId} act={act} onClose={() => setFightId(null)} toast={toast} />}
 
       {cookingId != null && <CookingPanel state={state} orderId={cookingId} act={act} onClose={() => setCookingId(null)} toast={toast} />}
       {modal === 'shop' && <ShopPanel state={state} act={act} onClose={() => setModal(null)} />}

@@ -728,7 +728,7 @@ export class Renderer {
     let dish = null;
     switch (c.state) {
       case 'thinking': sym = SYMBOLS.dots; break;
-      case 'calling': sym = SYMBOLS.bang; break;
+      case 'calling': sym = c.complainer ? SYMBOLS.anger : SYMBOLS.bang; break;
       case 'waiting': dish = RECIPE_MAP[c.recipeId]; break;
       case 'eating': if (Math.sin(time * 3 + c.id) > 0.6) sym = SYMBOLS.note; break;
       case 'wantPay': case 'toPay': case 'atRegister': sym = SYMBOLS.yen; break;

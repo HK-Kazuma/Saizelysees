@@ -12,6 +12,7 @@ import { appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL } fro
 import { buildLayout } from './layout.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
+const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーである確率
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -100,10 +101,26 @@ function spawnCustomer(state) {
     claimedBy: null,
     look: randomLook(),
   };
+  // たまにクレーマーが来る（同時に1人まで）。注文は取れず、店長が撃退する
+  if (!state.customers.some((x) => x.complainer) && Math.random() < COMPLAINER_RATE) {
+    c.complainer = true;
+    c.look = { ...c.look, shirt: 6, hair: 2, long: false };
+  }
   state.seatOcc[seat.id] = c.id;
   setDest(state, c, seat);
   state.customers.push(c);
   return true;
+}
+
+// クレーマー戦の結果：勝てば撃退して帰ってもらう。負ければ所持金の半分を持っていかれる
+export function resolveComplainer(state, c, won) {
+  freeSeat(state, c);
+  c.claimedBy = null;
+  c.state = 'leaving';
+  c.angry = true;
+  if (won) state.stats.defeated = (state.stats.defeated || 0) + 1;
+  else state.coins -= Math.floor(state.coins / 2);
+  exitPath(state, c);
 }
 
 function freeSeat(state, c) {
@@ -124,8 +141,8 @@ function leaveAngry(state, c) {
   c.state = 'leaving';
   c.angry = true;
   c.claimedBy = null;
-  state.stats.angry++;
-  state.events.push({ type: 'angry', x: c.x, y: c.y, text: 'もう帰る！' });
+  if (!c.complainer) state.stats.angry++;
+  state.events.push({ type: 'angry', x: c.x, y: c.y, text: c.complainer ? 'ふん！' : 'もう帰る！' });
   exitPath(state, c);
 }
 
@@ -436,7 +453,7 @@ function chooseAutoTask(state, w) {
     ready.claimedBy = w.id;
     return { type: 'serve', orderId: ready.id, step: 'pickup' };
   }
-  const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy);
+  const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
   if (caller) {
     caller.claimedBy = w.id;
     return { type: 'take', customerId: caller.id };
@@ -447,7 +464,7 @@ function chooseAutoTask(state, w) {
 function idleSpot(state, w) {
   const L = state.layout;
   if (w.role === 'manager') return L.managerIdle;
-  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % 3];
+  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % 5];
 }
 
 function updateWorker(state, w, dt) {

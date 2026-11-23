@@ -13,8 +13,8 @@ export const EQUIPMENT = [
 export const EQUIP_MAP = Object.fromEntries(EQUIPMENT.map((e) => [e.id, e]));
 
 export const STAFF = [
-  { id: 'kitchen', name: 'キッチンスタッフ', desc: '注文を自動で調理する', lv: 2, price: [1500, 4000, 9000] },
-  { id: 'hall', name: 'ホールスタッフ', desc: '注文取り・配膳・会計を自動で行う', lv: 2, price: [1200, 3500, 8000] },
+  { id: 'kitchen', name: 'キッチンスタッフ', desc: '注文を自動で調理する', lv: 2, price: [1500, 4000, 9000, 16000, 28000] },
+  { id: 'hall', name: 'ホールスタッフ', desc: '注文取り・配膳・会計を自動で行う', lv: 2, price: [1200, 3500, 8000, 14000, 24000] },
 ];
 
 // appeal: 店の魅力。来店ペースと待てる時間が伸びる
@@ -35,6 +35,8 @@ export const STORE_SIZES = [
   { cols: 10, rows: 8, price: 0, lv: 1, staffMax: 1, name: '小さなお店' },
   { cols: 12, rows: 9, price: 6000, lv: 4, staffMax: 2, name: '街角のお店' },
   { cols: 14, rows: 11, price: 18000, lv: 7, staffMax: 3, name: '大通りのお店' },
+  { cols: 16, rows: 12, price: 36000, lv: 10, staffMax: 4, name: '繁華街のお店' },
+  { cols: 18, rows: 14, price: 70000, lv: 12, staffMax: 5, name: '旗艦店' },
 ];
 
 export const TABLE_PRICE = (owned) => 600 + owned * 500;
