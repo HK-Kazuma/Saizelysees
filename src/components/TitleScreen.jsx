@@ -77,6 +77,7 @@ export default function TitleScreen({ onStart }) {
         </button>
         <button type="button" className="title-start" aria-label="START" onClick={(e) => { e.stopPropagation(); start(); }} />
         <div className="title-tap" aria-hidden="true">TAP TO START</div>
+        <div className="title-version">ver. {__APP_VERSION__}</div>
       </div>
     </div>
     {help && (

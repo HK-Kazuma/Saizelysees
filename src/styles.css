@@ -686,3 +686,14 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   .fight-tip { display: none; }
   .fight-pad { justify-content: space-between; }
 }
+
+/* タイトル画面右下のバージョン表記 */
+.title-version {
+  position: absolute;
+  right: 2cqw;
+  bottom: 1.6cqw;
+  font-size: max(10px, 1.8cqw);
+  color: #fffdf7;
+  text-shadow: 1px 1px 0 #2b1a14, -1px 1px 0 #2b1a14, 1px -1px 0 #2b1a14, -1px -1px 0 #2b1a14;
+  pointer-events: none;
+}
