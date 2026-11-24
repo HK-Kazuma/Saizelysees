@@ -17,6 +17,7 @@
 
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; overflow: hidden; background: #2a1712; }
+@supports (height: 100dvh) { html, body, #root { height: 100dvh; } }
 body {
   font-family: var(--font);
   color: var(--ink);
@@ -43,7 +44,8 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   inset: 0;
   display: flex;
   flex-direction: column;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* 下はホームバーの余白を取らず、画面の一番下までゲームを表示する */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
   background: repeating-linear-gradient(0deg, #2e1912 0 10px, #2a1610 10px 11px);
 }
 
@@ -149,7 +151,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   border-bottom: 3px solid var(--ink);
 }
 .tasks-queue { font-size: 11px; opacity: 0.9; }
-.tasks-list { flex: 1; overflow-y: auto; padding: 8px 8px 12px; display: flex; flex-direction: column; gap: 9px; -webkit-overflow-scrolling: touch; }
+.tasks-list { flex: 1; overflow-y: auto; padding: 8px 8px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 9px; -webkit-overflow-scrolling: touch; }
 .tasks-empty { text-align: center; font-size: 13px; color: #7a6a5a; padding: 16px 4px; }
 .tasks-empty .hint { font-size: 11px; }
 .tasks-tip { font-size: 11px; padding: 6px 10px; background: #fff6c8; border-top: 2px solid var(--ink); }
