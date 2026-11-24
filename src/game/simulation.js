@@ -499,7 +499,8 @@ function chooseAutoTask(state, w) {
     return { type: 'cook', orderId: o.id, step: 'station' };
   }
   // ホール：会計 → 配膳 → 注文取り の優先順
-  const payer = state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
+  // 無人レジがあるときは会計をお客さんに任せる
+  const payer = state.equipment.selfreg?.owned ? null : state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
   if (payer) {
     payer.claimedBy = w.id;
     return { type: 'checkout', customerId: payer.id };
