@@ -1,13 +1,14 @@
 import React, { useEffect, useRef } from 'react';
 import { rebuildSpriteCaches } from '../render/sprites.js';
 import { Renderer } from '../render/renderer.js';
-import { cssToInternal, view } from '../render/view.js';
+import { cssToInternal, tileToCss, view } from '../render/view.js';
 
 // Canvas とゲームループ。requestAnimationFrame ごとに tick → draw
 export default function GameCanvas({ store, poster, act, onCook, onFight, onPoster }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const rendererRef = useRef(null);
+  const alertRef = useRef(null); // ドリンク切れの表示
   const handlers = useRef({});
   handlers.current = { act, onCook, onFight, onPoster };
 
@@ -28,6 +29,23 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
       last = now;
       store.tick(dt);
       r.draw(store.state, now / 1000, dt);
+      // ドリンクが切れたら、ドリンクバーの上に表示（画面のズーム・移動に追従）
+      const el = alertRef.current;
+      if (el) {
+        const s = store.state;
+        const out = s.equipment.drink.owned && s.drinkStock <= 0;
+        if (out) {
+          const p = tileToCss(s.layout.drink.x, s.layout.drink.y, 52);
+          el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(p.y)}px) translate(-50%, -100%)`;
+          el.disabled = !!s.drinkClaim;
+          const label = s.drinkClaim ? '交換に向かっています' : 'ドリンク切れ！タップで交換';
+          if (el.dataset.label !== label) {
+            el.dataset.label = label;
+            el.textContent = `🥤 ${label}`;
+          }
+        }
+        el.style.display = out ? '' : 'none';
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -143,13 +161,14 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
     else if (c.state === 'waiting') {
       const o = store.state.orders.find((x) => x.customerId === c.id);
       if (!o) return;
-      if (o.status === 'ready' && !o.claimedBy) doAct({ type: 'SERVE', orderId: o.id });
+      if (o.status === 'ready' && !o.claimedBy && !c.trip) doAct({ type: 'SERVE', orderId: o.id });
       else if (o.status === 'queued' && !o.claimedBy) cook(o.id);
     }
   };
 
   return (
     <div ref={wrapRef} className="canvas-wrap">
+      <button ref={alertRef} className="drink-alert" style={{ display: 'none' }} onClick={() => handlers.current.act({ type: 'SWAP_DRINK' })} />
       <canvas ref={canvasRef} className="game-canvas" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={endDrag} />
     </div>
   );

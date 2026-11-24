@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { appeal, EXPENSE_CATS, sumExpense } from '../game/state.js';
-import { DECOR, STORE_SIZES, STAFF } from '../data/shop.js';
+import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
 const TABS = [
   { id: 'overview', name: '概要' },
@@ -107,7 +107,7 @@ export default function StoreInfo({ state, onClose }) {
               <Stat label="所持金" value={yen(state.coins)} />
               <Stat label="店の魅力" value={`♥${appeal(state)}`} sub={`装飾 +${decorAppeal} / テーブル +${state.tables}`} />
               <Stat label="席数" value={`${state.layout.seats.length}席`} sub={`テーブル ${state.tables}/${state.layout.tableCapacity}卓`} />
-              <Stat label="スタッフ" value={`${state.staff.kitchen + state.staff.hall}人`} sub={`${STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}`).join(' / ')}（各上限${size.staffMax}）`} />
+              <Stat label="スタッフ" value={`${state.staff.kitchen + state.staff.hall}人`} sub={`${STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}`).join(' / ')}（上限 キッチン${staffLimit(state, 'kitchen')} / ホール${staffLimit(state, 'hall')}）`} />
               <Stat label="装飾" value={`${ownedDecor}/${DECOR.length}点`} />
               <Stat label="累計売上" value={yen(state.stats.sales)} />
               <Stat label="累計のお客さん" value={`${state.stats.served}組`} sub={`怒って帰った ${state.stats.angry}人`} />

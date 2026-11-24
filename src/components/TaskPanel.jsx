@@ -22,7 +22,7 @@ function buildCards(state) {
       if (state.equipment.qrorder?.owned) {
         cards.push({ ...base, title: '注文中...', note: 'お客さんがスマホで注文しています', action: null, kind: 'take', hideDish: true });
       } else {
-        cards.push({ ...base, title: '注文を聞く', note: c.claimedBy ? who(c.claimedBy) : 'お客さんが呼んでいます', action: c.claimedBy ? null : { type: 'TAKE_ORDER', customerId: c.id }, kind: 'take', hideDish: true });
+        cards.push({ ...base, title: '注文を聞く', note: c.claimedBy ? who(c.claimedBy) : c.wantsDrink ? 'お客さんが呼んでいます（ドリンクバー付き）' : 'お客さんが呼んでいます', action: c.claimedBy ? null : { type: 'TAKE_ORDER', customerId: c.id }, kind: 'take', hideDish: true });
       }
     } else if (c.state === 'waiting') {
       const o = state.orders.find((x) => x.customerId === c.id);
@@ -31,6 +31,8 @@ function buildCards(state) {
         cards.push({ ...base, title: '調理する', note: r.name, cook: o.id, kind: 'cook' });
       } else if (o.status === 'cooking') {
         cards.push({ ...base, title: '調理中', note: who(o.claimedBy), kind: 'busy' });
+      } else if (o.status === 'ready' && c.trip) {
+        cards.push({ ...base, title: '配膳待ち', note: c.trip === 'wait' ? 'ドリンクが切れていて待っています' : 'お客さんがドリンクを取りに行っています', kind: 'busy' });
       } else if (o.status === 'ready') {
         cards.push({ ...base, title: '配膳する', note: o.claimedBy ? who(o.claimedBy) : `${r.name}ができました`, action: o.claimedBy ? null : { type: 'SERVE', orderId: o.id }, kind: 'serve' });
       } else {
@@ -42,6 +44,14 @@ function buildCards(state) {
       cards.push({ ...base, ratio: 1, title: '会計待ち', note: 'レジが空くのを待っています', kind: 'busy' });
     }
   });
+  // ドリンクバーが切れている
+  if (state.equipment.drink.owned && state.drinkStock <= 0) {
+    cards.push({
+      key: 'drink-swap', recipe: null, ratio: 1, hideDish: true, iconText: '🥤',
+      title: 'ドリンク交換', note: state.drinkClaim ? who(state.drinkClaim) : 'ドリンクバーが切れています',
+      action: state.drinkClaim ? null : { type: 'SWAP_DRINK' }, kind: 'bus',
+    });
+  }
   // 食べ終わって食器が残っている席（お客さんが席を立ったら片付けられる）
   for (const [seatId, d] of Object.entries(state.dirty || {})) {
     if (state.seatOcc[seatId]) continue;

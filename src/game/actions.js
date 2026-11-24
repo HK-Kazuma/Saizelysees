@@ -1,7 +1,7 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
-import { EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
+import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave, emptyDaily } from './state.js';
+import { createInitialState, clearSave, emptyDaily, drinkCap } from './state.js';
 
 const fail = (msg) => ({ ok: false, msg });
 const okMsg = (msg) => ({ ok: true, msg });
@@ -31,6 +31,7 @@ export function applyAction(state, action) {
     case 'SERVE': {
       const o = state.orders.find((x) => x.id === action.orderId);
       if (!o || o.status !== 'ready' || o.claimedBy) return fail('配膳できません');
+      if (state.customers.find((x) => x.id === o.customerId)?.trip) return fail('お客さんがドリンクを取りに行っています');
       const m = manager(state);
       o.claimedBy = m.id;
       m.queue.push({ type: 'serve', orderId: o.id, step: 'pickup' });
@@ -45,6 +46,13 @@ export function applyAction(state, action) {
       return okMsg();
     }
 
+    case 'SWAP_DRINK': {
+      if (!state.equipment.drink.owned || state.drinkStock > 0 || state.drinkClaim) return fail('交換できません');
+      const m = manager(state);
+      state.drinkClaim = m.id;
+      m.queue.push({ type: 'drink' });
+      return okMsg();
+    }
     case 'BUS_TABLE': {
       const d = state.dirty[action.seatId];
       if (!d || d.claimedBy || state.seatOcc[action.seatId]) return fail('片付けられません');
@@ -118,7 +126,10 @@ export function applyAction(state, action) {
       if (state.level < def.lv) return fail(`Lv${def.lv}で解放`);
       if (!spend(state, def.price, 'equip')) return fail('お金が足りません');
       cur.owned = true;
-      if (action.id === 'drink') rebuildLayout(state);
+      if (action.id === 'drink') {
+        state.drinkStock = drinkCap(state);
+        rebuildLayout(state);
+      }
       state.events.push({ type: 'purchase', text: `${def.name}を設置しました` });
       return okMsg();
     }
@@ -129,13 +140,14 @@ export function applyAction(state, action) {
       if (!cur.owned || price == null) return fail('これ以上強化できません');
       if (!spend(state, price, 'equip')) return fail('お金が足りません');
       cur.lv++;
+      if (action.id === 'drink') state.drinkStock = drinkCap(state); // 強化で容量が増え、満タンにもなる
       state.events.push({ type: 'purchase', text: `${def.name}が Lv${cur.lv} になりました` });
       return okMsg();
     }
     case 'HIRE': {
       const def = STAFF.find((s) => s.id === action.role);
       const n = state.staff[action.role];
-      const max = STORE_SIZES[state.sizeIdx].staffMax;
+      const max = staffLimit(state, action.role);
       if (state.level < def.lv) return fail(`Lv${def.lv}で解放`);
       if (n >= max) return fail('店舗を拡張すると雇えます');
       if (!spend(state, def.price[n], 'staff')) return fail('お金が足りません');

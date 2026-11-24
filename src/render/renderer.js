@@ -912,7 +912,7 @@ export class Renderer {
     const a = P(d.x + 0.1, d.y + 0.9, 18), b = P(d.x + 0.9, d.y + 0.9, 18);
     line(g, a.x, a.y, b.x - 1, b.y, C.white);
     const p = P(d.x + 0.5, d.y + 0.5, 26);
-    const n = 1 + (state.equipment.drink.lv || 1);
+    const n = state.drinkStock > 0 ? 1 + (state.equipment.drink.lv || 1) : 0; // 切れたらボトルが消える
     for (let i = 0; i < n; i++) {
       g.fillStyle = ['#cfe8f0', '#f2a03a', '#8a3a2a', '#6ab84a'][i % 4];
       g.fillRect(Math.round(p.x) - 6 + i * 4, Math.round(p.y) - 5, 3, 4);
@@ -946,9 +946,20 @@ export class Renderer {
       const left = s.id.endsWith('_L');
       const p = P(t.x + (left ? 0.3 : 0.7), t.y + 0.55, 13);
       const c = seatedBy[s.id];
+      if (c && c.hasDrink) this.drawCup(g, Math.round(p.x) + (left ? -9 : 7), Math.round(p.y) - 4);
       if (c && c.dish) g.drawImage(getDishSprite(RECIPE_MAP[c.dish]), Math.round(p.x) - 6, Math.round(p.y) - 7);
       else if (state.dirty[s.id]) this.drawDirtyDishes(g, Math.round(p.x) - 5, Math.round(p.y) - 2);
     }
+  }
+
+  // ドリンクの入ったコップ（左上が (x, y)）
+  drawCup(g, x, y) {
+    g.fillStyle = '#cfe8f0';
+    g.fillRect(x, y, 3, 4);
+    g.fillStyle = '#f2a03a';
+    g.fillRect(x, y + 1, 3, 3);
+    g.fillStyle = '#ffffff';
+    g.fillRect(x, y, 1, 4);
   }
 
   // 空のお皿とコップ（左上が (x, y)）
@@ -1027,6 +1038,7 @@ export class Renderer {
     // 作業中は少し揺れる
     if (ent.phase === 'act' && ent.kind === 'worker') y += Math.sin(time * 18) > 0 ? -1 : 0;
     g.drawImage(spr, x, y);
+    if (ent.hasDrink && !ent.sitting && ent.kind === 'customer') this.drawCup(g, x + (ent.faceLeft ? -2 : 9), y + 12);
     if (ent.carrying === 'dishes') {
       this.drawDirtyDishes(g, x + (ent.faceLeft ? -2 : 4), y + 13);
     } else if (ent.carrying) {
@@ -1050,7 +1062,10 @@ export class Renderer {
     switch (c.state) {
       case 'thinking': sym = SYMBOLS.dots; break;
       case 'calling': sym = c.complainer ? SYMBOLS.anger : SYMBOLS.bang; break;
-      case 'waiting': dish = RECIPE_MAP[c.recipeId]; break;
+      case 'waiting':
+        if (c.trip === 'wait') sym = SYMBOLS.bang; // ドリンクが切れていて困っている
+        else dish = RECIPE_MAP[c.recipeId];
+        break;
       case 'eating': if (Math.sin(time * 3 + c.id) > 0.6) sym = SYMBOLS.note; break;
       case 'wantPay': case 'toPay': case 'atRegister': sym = SYMBOLS.yen; break;
       case 'leaving': sym = c.angry ? SYMBOLS.anger : c.happy ? SYMBOLS.heart : null; break;

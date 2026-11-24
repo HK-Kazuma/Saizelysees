@@ -106,8 +106,9 @@ export function buildLayout(state) {
     payQueue: [{ x: 1, y: rows - 2 }, { x: 2, y: rows - 2 }, { x: 2, y: rows - 3 }, { x: 2, y: rows - 4 }, { x: 2, y: rows - 5 }, { x: 1, y: rows - 5 }],
     // 洗い場（厨房の壁際）。下げた食器をここへ運ぶ
     sink: { x: cols - 3, y: 0, front: { x: cols - 3, y: 1 } },
+    drinkSpot: { x: cols - 1, y: 4 }, // ドリンクバーの前（お客さん・店員が立つ場所）
     cashierSpot: { x: 1, y: rows - 4 },
-    hallIdle: [{ x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 4 }, { x: 2, y: 4 }, { x: 3, y: 4 }],
+    hallIdle: [{ x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 4 }, { x: 2, y: 4 }, { x: 3, y: 4 }, { x: 4, y: 3 }, { x: 5, y: 4 }],
     kitchenIdle: [{ x: cols - 2, y: 1 }, { x: cols - 3, y: 1 }, { x: cols - 4, y: 1 }, { x: cols - 5, y: 1 }, { x: cols - 6, y: 1 }],
     managerIdle: { x: 2, y: 4 },
     equipment,

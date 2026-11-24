@@ -9,7 +9,7 @@
 //   bus(片付け: pickup→wash。食べ終わった席の食器を洗い場へ)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { makeReport, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -17,6 +17,9 @@ const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーであ�
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const DRINK_RATE = 0.6; // ドリンクバーを頼むお客さんの割合
+const DRINK_FILL_TIME = 1.6; // ドリンクを注ぐ時間(秒)
+const DRINK_SWAP_TIME = 3; // ドリンク交換にかかる時間(秒)
 const QR_ORDER_TIME = 3; // QR注文のスマホ操作時間(秒)
 const newId = (state) => state.nextId++;
 
@@ -108,6 +111,7 @@ function spawnCustomer(state) {
     c.complainer = true;
     c.look = { ...c.look, shirt: 6, hair: 2, long: false };
   }
+  c.wantsDrink = !!state.equipment.drink.owned && !c.complainer && Math.random() < DRINK_RATE;
   state.seatOcc[seat.id] = c.id;
   setDest(state, c, seat);
   state.customers.push(c);
@@ -208,6 +212,60 @@ function placeOrder(state, c) {
   c.claimedBy = null;
   c.patience = c.maxPatience = waitPatience(state, r);
   state.events.push({ type: 'order', recipeId: c.recipeId });
+  // ドリンクバー付きなら、注文のあと自分で取りに行く
+  if (c.wantsDrink && !c.hasDrink && state.equipment.drink.owned) {
+    c.trip = 'go';
+    c.sitting = false;
+    setDest(state, c, state.layout.drinkSpot);
+  }
+}
+
+// ドリンクバーへ行って、注いで、席に戻る。ドリンクが切れていたら交換されるまで待つ（待ちすぎると怒って帰る）
+function startFill(state, c) {
+  if (state.drinkStock > 0) {
+    c.trip = 'fill';
+    c.tripTimer = DRINK_FILL_TIME;
+  } else if (c.trip !== 'wait') {
+    c.trip = 'wait';
+    c.drinkPatience = callPatience(state);
+  }
+}
+
+function updateDrinkTrip(state, c, dt) {
+  const L = state.layout;
+  switch (c.trip) {
+    case 'go':
+      if (move(c, dt, SPEED.customer)) {
+        faceToward(c, L.drink);
+        startFill(state, c);
+      }
+      break;
+    case 'wait':
+      if (state.drinkStock > 0) startFill(state, c);
+      break;
+    case 'fill':
+      c.tripTimer -= dt;
+      if (c.tripTimer <= 0) {
+        if (state.drinkStock > 0) {
+          state.drinkStock--;
+          if (state.drinkStock === 0) state.events.push({ type: 'penalty', text: 'ドリンクバーのドリンクが切れました！交換してください' });
+          c.hasDrink = true;
+          c.trip = 'back';
+          setDest(state, c, L.seatMap[c.seatId]);
+        } else startFill(state, c);
+      }
+      break;
+    case 'back':
+      if (move(c, dt, SPEED.customer)) {
+        c.trip = null;
+        c.sitting = true;
+        c.faceLeft = c.seatId.endsWith('_R');
+        c.faceBack = false;
+      }
+      break;
+    default:
+      break;
+  }
 }
 
 function updateCustomer(state, c, dt) {
@@ -240,6 +298,15 @@ function updateCustomer(state, c, dt) {
       }
     // falls through
     case 'waiting': {
+      if (c.trip) {
+        updateDrinkTrip(state, c, dt);
+        if (c.trip === 'wait') {
+          // ドリンクが切れていて困っている。放置すると怒って帰る
+          c.drinkPatience -= dt;
+          if (c.drinkPatience <= 0) leaveAngry(state, c);
+          break;
+        }
+      }
       // 店員が向かっている間は待ち時間の減りをゆっくりにする
       const slow = c.claimedBy || state.orders.some((o) => o.customerId === c.id && o.status !== 'queued') ? 0.5 : 1;
       c.patience -= dt * slow;
@@ -313,7 +380,7 @@ function pay(state, c) {
   const r = RECIPE_MAP[c.recipeId];
   const q = c.quality ?? 2;
   const mult = QUALITY_MULT[q];
-  const drink = state.equipment.drink.owned ? 100 * state.equipment.drink.lv : 0;
+  const drink = c.hasDrink ? drinkFee(state) : 0; // ドリンクバーを頼んで飲んだ人だけ
   const amount = Math.round((r.price * mult) / 10) * 10 + drink;
   const xp = Math.round((r.price / 12) * mult) + 2;
   state.coins += amount;
@@ -397,6 +464,8 @@ function taskTarget(state, task) {
     }
     case 'checkout':
       return L.cashierSpot;
+    case 'drink':
+      return L.drinkSpot;
     case 'bus':
       return task.step === 'pickup' ? L.seatMap[task.seatId].access : L.sink.front;
     case 'serve': {
@@ -426,6 +495,8 @@ function taskValid(state, task) {
       const c = findCustomer(state, task.customerId);
       return !!c && (c.state === 'atRegister' || c.state === 'toPay');
     }
+    case 'drink':
+      return !!state.equipment.drink.owned && state.drinkStock <= 0;
     case 'bus':
       return task.step === 'wash' || (!!state.dirty[task.seatId] && !!state.layout.seatMap[task.seatId]);
     case 'serve':
@@ -437,7 +508,9 @@ function taskValid(state, task) {
 }
 
 function releaseClaim(state, w, task) {
-  if (task.type === 'bus') {
+  if (task.type === 'drink') {
+    if (state.drinkClaim === w.id) state.drinkClaim = null;
+  } else if (task.type === 'bus') {
     const d = state.dirty[task.seatId];
     if (d && d.claimedBy === w.id) d.claimedBy = null;
   } else if (task.type === 'take' || task.type === 'checkout') {
@@ -472,6 +545,7 @@ function actTime(state, w) {
   const t = w.task;
   if (t.type === 'take') return 0.8;
   if (t.type === 'checkout') return 0.9;
+  if (t.type === 'drink') return DRINK_SWAP_TIME;
   if (t.type === 'bus') return t.step === 'pickup' ? 0.8 : 0.6;
   if (t.type === 'serve') return t.step === 'pickup' ? 0.3 : 0.4;
   if (t.type === 'cook') {
@@ -497,6 +571,11 @@ function completeAct(state, w) {
     c.claimedBy = null;
     exitPath(state, c);
     w.task = null;
+  } else if (t.type === 'drink') {
+    state.drinkStock = drinkCap(state);
+    state.drinkClaim = null;
+    w.task = null;
+    state.events.push({ type: 'purchase', text: 'ドリンクを交換しました' });
   } else if (t.type === 'bus') {
     if (t.step === 'pickup') {
       delete state.dirty[t.seatId]; // 食器を持ち上げた時点で席が空く
@@ -567,16 +646,22 @@ function chooseAutoTask(state, w) {
     payer.claimedBy = w.id;
     return { type: 'checkout', customerId: payer.id };
   }
-  const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy);
+  const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip);
   if (ready) {
     ready.claimedBy = w.id;
     return { type: 'serve', orderId: ready.id, step: 'pickup' };
   }
+  // ドリンクバーが切れていたら交換（お客さんが待っている）
+  const needSwap = state.equipment.drink.owned && state.drinkStock <= 0 && !state.drinkClaim;
   const dirtyId = Object.keys(state.dirty).find((id) => !state.dirty[id].claimedBy && !state.seatOcc[id] && state.layout.seatMap[id]);
   const caller = state.equipment.qrorder?.owned ? null : state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
   if (caller) {
     caller.claimedBy = w.id;
     return { type: 'take', customerId: caller.id };
+  }
+  if (needSwap) {
+    state.drinkClaim = w.id;
+    return { type: 'drink' };
   }
   // 手が空いていれば、食べ終わった席の食器を片付ける
   if (dirtyId) {
@@ -589,7 +674,7 @@ function chooseAutoTask(state, w) {
 function idleSpot(state, w) {
   const L = state.layout;
   if (w.role === 'manager') return state.clock < OPEN_MIN ? L.deskSeat : L.managerIdle; // 開店前は自分の机
-  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % 5];
+  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle).length];
 }
 
 function updateWorker(state, w, dt) {
@@ -654,6 +739,8 @@ function updateWorker(state, w, dt) {
           w.faceBack = true;
         } else if (t.type === 'checkout') {
           faceToward(w, state.layout.register);
+        } else if (t.type === 'drink') {
+          faceToward(w, state.layout.drink);
         } else if (t.type === 'bus') {
           if (t.step === 'pickup') faceToward(w, state.layout.seatMap[t.seatId]);
           else w.faceBack = true;
@@ -696,7 +783,9 @@ export function rebuildLayout(state) {
       c.state = 'toPay';
       c.qi = 0;
       setDest(state, c, L.paySpot);
-    } else if (c.state === 'leaving') exitPath(state, c);
+    } else if (c.state === 'waiting' && c.trip === 'go') setDest(state, c, L.drinkSpot);
+    else if (c.state === 'waiting' && c.trip === 'back') setDest(state, c, L.seatMap[c.seatId]);
+    else if (c.state === 'leaving') exitPath(state, c);
   }
   for (const w of state.workers) {
     if (w.shift && w.shift !== 'on') continue;

@@ -1,6 +1,6 @@
 // ゲーム状態の初期値・レベル曲線・解放判定・セーブ/ロード
 import { RECIPES } from '../data/recipes.js';
-import { EQUIPMENT, DECOR, STAFF, STORE_SIZES } from '../data/shop.js';
+import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from '../data/shop.js';
 import { buildLayout } from './layout.js';
 
 const SAVE_KEY = 'saizelysees-save-v1';
@@ -59,6 +59,7 @@ export function unlocksAt(level, state) {
       ...EQUIPMENT.filter((e) => e.lv === level && !state?.equipment[e.id]?.owned).map((e) => e.name),
       ...STAFF.filter((s) => s.lv === level).map((s) => s.name),
       ...DECOR.filter((d) => d.lv === level && !state?.decor[d.id]).map((d) => d.name),
+      ...(level === HALL_BONUS_LV ? [`ホールスタッフの上限 +${HALL_BONUS}人`] : []),
       ...STORE_SIZES.filter((s) => s.lv === level && s.price > 0).map((s) => `店舗拡張「${s.name}」`),
     ],
   };
@@ -75,6 +76,9 @@ export const EXPENSE_CATS = [
   { id: 'expand', name: '店舗の拡張・テーブル' },
   { id: 'penalty', name: 'クレーマー被害' },
 ];
+// ドリンクバー：1人ぶんの料金と、交換までに出せるドリンクの数（強化で増える）
+export const drinkFee = (state) => 100 * (state.equipment.drink?.lv ?? 1);
+export const drinkCap = (state) => 8 + 4 * ((state.equipment.drink?.lv ?? 1) - 1);
 export const sumExpense = (e) => Object.values(e || {}).reduce((s, v) => s + v, 0);
 
 // 23:00に表示するレポート。売れた料理を多い順に並べる
@@ -111,6 +115,8 @@ export function createInitialState() {
     orders: [],
     seatOcc: {},
     eqBusy: {},
+    drinkStock: 0, // ドリンクバーに残っているドリンクの数（0で切れ）
+    drinkClaim: null, // 交換に向かっている店員
     paused: false, // メニュー表示中は true（時間が止まる）
     dirty: {}, // 食器が残っている席 { seatId: { recipeId, claimedBy } }
     nextId: 1,
@@ -121,7 +127,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['day', 'clock', 'daily', 'history', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'daily', 'history', 'drinkStock', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {
@@ -144,6 +150,8 @@ export function loadGame() {
         else state[k] = data[k];
       }
       state.layout = buildLayout(state);
+      // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
+      if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);
       // レポート表示中(23:00)にリロードしたときは、レポートをもう一度出す
       if (Math.round(state.clock) === FAST_START_MIN && state.daily.served + state.daily.angry > 0) state.report = makeReport(state);
     }
