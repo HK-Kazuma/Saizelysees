@@ -19,7 +19,11 @@ function buildCards(state) {
     if (c.complainer && (c.state === 'calling' || c.state === 'fighting')) {
       cards.push({ ...base, ratio: c.state === 'fighting' ? 1 : ratio, title: 'クレーマー対応！', note: c.state === 'fighting' ? '対決中！' : 'クレーマーが怒っています', fight: c.state === 'calling' ? c.id : null, kind: 'fight', hideDish: true });
     } else if (c.state === 'calling') {
-      cards.push({ ...base, title: '注文を聞く', note: c.claimedBy ? who(c.claimedBy) : 'お客さんが呼んでいます', action: c.claimedBy ? null : { type: 'TAKE_ORDER', customerId: c.id }, kind: 'take', hideDish: true });
+      if (state.equipment.qrorder?.owned) {
+        cards.push({ ...base, title: '注文中...', note: 'お客さんがスマホで注文しています', action: null, kind: 'take', hideDish: true });
+      } else {
+        cards.push({ ...base, title: '注文を聞く', note: c.claimedBy ? who(c.claimedBy) : 'お客さんが呼んでいます', action: c.claimedBy ? null : { type: 'TAKE_ORDER', customerId: c.id }, kind: 'take', hideDish: true });
+      }
     } else if (c.state === 'waiting') {
       const o = state.orders.find((x) => x.customerId === c.id);
       if (!o) return;

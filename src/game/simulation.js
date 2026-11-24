@@ -16,6 +16,7 @@ const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーであ�
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const QR_ORDER_TIME = 3; // QR注文のスマホ操作時間(秒)
 const newId = (state) => state.nextId++;
 
 // ───────── 移動 ─────────
@@ -190,6 +191,16 @@ function updatePayQueue(state, c) {
   }
 }
 
+// 注文を通す（店員が聞いたとき／お客さんがスマホで注文したとき）
+function placeOrder(state, c) {
+  const r = RECIPE_MAP[c.recipeId];
+  state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
+  c.state = 'waiting';
+  c.claimedBy = null;
+  c.patience = c.maxPatience = waitPatience(state, r);
+  state.events.push({ type: 'order', recipeId: c.recipeId });
+}
+
 function updateCustomer(state, c, dt) {
   const L = state.layout;
   switch (c.state) {
@@ -211,6 +222,14 @@ function updateCustomer(state, c, dt) {
       }
       break;
     case 'calling':
+      // QRコード注文：お客さんが自分のスマホで注文する（スマホ操作に3秒かかる）
+      if (state.equipment.qrorder?.owned && !c.complainer) {
+        c.qrTimer ??= QR_ORDER_TIME;
+        c.qrTimer -= dt;
+        if (c.qrTimer <= 0) placeOrder(state, c);
+        break;
+      }
+    // falls through
     case 'waiting': {
       // 店員が向かっている間は待ち時間の減りをゆっくりにする
       const slow = c.claimedBy || state.orders.some((o) => o.customerId === c.id && o.status !== 'queued') ? 0.5 : 1;
@@ -450,12 +469,7 @@ function completeAct(state, w) {
   const L = state.layout;
   if (t.type === 'take') {
     const c = findCustomer(state, t.customerId);
-    const r = RECIPE_MAP[c.recipeId];
-    state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
-    c.state = 'waiting';
-    c.claimedBy = null;
-    c.patience = c.maxPatience = waitPatience(state, r);
-    state.events.push({ type: 'order', recipeId: c.recipeId });
+    placeOrder(state, c);
     w.task = null;
   } else if (t.type === 'checkout') {
     const c = findCustomer(state, t.customerId);
@@ -529,7 +543,7 @@ function chooseAutoTask(state, w) {
     ready.claimedBy = w.id;
     return { type: 'serve', orderId: ready.id, step: 'pickup' };
   }
-  const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
+  const caller = state.equipment.qrorder?.owned ? null : state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
   if (caller) {
     caller.claimedBy = w.id;
     return { type: 'take', customerId: caller.id };

@@ -4,6 +4,7 @@ import { EQUIPMENT, EQUIP_MAP, STAFF, DECOR, STORE_SIZES, TABLE_PRICE } from '..
 import { RECIPES } from '../data/recipes.js';
 
 const SELFREG = EQUIP_MAP.selfreg;
+const QRORDER = EQUIP_MAP.qrorder;
 
 const TABS = [
   { id: 'equip', name: '設備' },
@@ -57,7 +58,7 @@ export default function ShopPanel({ state, act, onClose }) {
         </div>
         <div className="shop-list">
           {tab === 'equip' &&
-            EQUIPMENT.filter((e) => e.id !== 'selfreg').map((e) => {
+            EQUIPMENT.filter((e) => e.id !== 'selfreg' && e.id !== 'qrorder').map((e) => {
               const cur = state.equipment[e.id];
               const enables = RECIPES.filter((r) => r.req.includes(e.id) && r.req.length === 1).length;
               if (!cur.owned) {
@@ -103,6 +104,9 @@ export default function ShopPanel({ state, act, onClose }) {
               <Item title={SELFREG.name} desc={SELFREG.desc} price={SELFREG.price} label="導入する"
                 done={state.equipment.selfreg.owned} locked={state.level < SELFREG.lv ? `Lv${SELFREG.lv}で解放` : null}
                 disabled={state.coins < SELFREG.price} onBuy={() => act({ type: 'BUY_EQUIP', id: 'selfreg' })} />
+              <Item title={QRORDER.name} desc={QRORDER.desc} price={QRORDER.price} label="導入する"
+                done={state.equipment.qrorder.owned} locked={state.level < QRORDER.lv ? `Lv${QRORDER.lv}で解放` : null}
+                disabled={state.coins < QRORDER.price} onBuy={() => act({ type: 'BUY_EQUIP', id: 'qrorder' })} />
               {next ? (
                 <Item title={`店舗拡張「${next.name}」`} desc={`${next.cols}×${next.rows}マスに広げる。テーブル最大${tableSlots(next.cols, next.rows).length}卓・スタッフ各${next.staffMax}人まで`}
                   price={next.price} label="拡張する" locked={state.level < next.lv ? `Lv${next.lv}で解放` : null}

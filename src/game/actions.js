@@ -19,7 +19,7 @@ export function applyAction(state, action) {
     // ── 接客（店長に指示を出す。店長は順番に動く） ──
     case 'TAKE_ORDER': {
       const c = state.customers.find((x) => x.id === action.customerId);
-      if (!c || c.state !== 'calling' || c.claimedBy || c.complainer) return fail('対応できません');
+      if (!c || c.state !== 'calling' || c.claimedBy || c.complainer || state.equipment.qrorder?.owned) return fail('対応できません');
       const m = manager(state);
       c.claimedBy = m.id;
       m.queue.push({ type: 'take', customerId: c.id });

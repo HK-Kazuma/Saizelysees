@@ -11,6 +11,8 @@ export const EQUIPMENT = [
   { id: 'drink', name: 'ドリンクバー', desc: '会計ごとに +¥100（強化で増額）', lv: 3, price: 2500, upgrade: [2000, 4000, 8000], x: -1 },
   // 拡張タブで購入。会計を自動で行う（強化なし）
   { id: 'selfreg', name: '無人レジ', desc: 'お客さんが自分で会計する。店員がいなくても会計が進む', lv: 10, price: 50000, upgrade: [], x: -1 },
+  // 拡張タブで購入。お客さんがスマホで注文するので、店員が注文を聞く必要がなくなる（強化なし）
+  { id: 'qrorder', name: 'QRコード注文', desc: 'お客さんがスマホでQRを読み取って注文する。店員が注文を聞く必要がなくなる', lv: 15, price: 50000, upgrade: [], x: -1 },
 ];
 export const EQUIP_MAP = Object.fromEntries(EQUIPMENT.map((e) => [e.id, e]));
 
