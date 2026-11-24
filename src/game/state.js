@@ -100,6 +100,7 @@ export function createInitialState() {
     orders: [],
     seatOcc: {},
     eqBusy: {},
+    dirty: {}, // 食器が残っている席 { seatId: { recipeId, claimedBy } }
     nextId: 1,
     events: [],
     layout: null,

@@ -471,7 +471,9 @@ export class Renderer {
     }
     // 設備のない厨房の壁際は作業台
     const eqXs = new Set(L.equipment.map((e) => e.x));
+    eqXs.add(L.sink.x); // 洗い場がある場所は作業台を置かない
     for (let x = 0; x < L.cols; x++) if (!eqXs.has(x) && x !== L.lane) add(x, () => this.drawPrepTable(g, x));
+    add(L.sink.x + 0.01, () => this.drawSink(g, L.sink));
     // カウンター（1タイルずつ）
     for (let x = 0; x < L.cols; x++) if (x !== L.lane) add(x + 2, () => this.drawCounter(g, state, x, time));
     // レジ
@@ -939,14 +941,42 @@ export class Renderer {
     g.fillRect(Math.round(sp.x) - 1, Math.round(sp.y) - 4, 2, 4);
     g.fillStyle = C.green;
     g.fillRect(Math.round(sp.x) + 2, Math.round(sp.y) - 5, 2, 5);
-    // 食事中の料理
+    // 食事中の料理 / 食べ終わって残った食器
     for (const s of t.seats) {
-      const c = seatedBy[s.id];
-      if (!c || !c.dish) continue;
       const left = s.id.endsWith('_L');
       const p = P(t.x + (left ? 0.3 : 0.7), t.y + 0.55, 13);
-      g.drawImage(getDishSprite(RECIPE_MAP[c.dish]), Math.round(p.x) - 6, Math.round(p.y) - 7);
+      const c = seatedBy[s.id];
+      if (c && c.dish) g.drawImage(getDishSprite(RECIPE_MAP[c.dish]), Math.round(p.x) - 6, Math.round(p.y) - 7);
+      else if (state.dirty[s.id]) this.drawDirtyDishes(g, Math.round(p.x) - 5, Math.round(p.y) - 2);
     }
+  }
+
+  // 空のお皿とコップ（左上が (x, y)）
+  drawDirtyDishes(g, x, y) {
+    g.fillStyle = '#b8b0a4'; // お皿の影
+    g.fillRect(x + 1, y + 3, 8, 1);
+    g.fillStyle = '#fbf7ee';
+    g.fillRect(x, y + 1, 9, 2);
+    g.fillRect(x + 1, y, 7, 1);
+    g.fillStyle = '#c8553a'; // ソースの跡
+    g.fillRect(x + 2, y + 1, 3, 1);
+    g.fillStyle = '#cfe8f0'; // コップ
+    g.fillRect(x + 8, y - 3, 3, 4);
+    g.fillStyle = '#e8f6fa';
+    g.fillRect(x + 8, y - 3, 1, 3);
+  }
+
+  // 洗い場（シンク）
+  drawSink(g, s) {
+    const u = s.x + 0.04, v = 0.06, du = 0.92, dv = 0.86;
+    isoBox(g, u, v, du, dv, 0, 18, { top: C.steel, left: C.steelD, right: C.steelDD, hi: C.steelL });
+    fillPoly(g, [P(u + 0.12, v + 0.2, 18), P(u + 0.82, v + 0.2, 18), P(u + 0.82, v + 0.7, 18), P(u + 0.12, v + 0.7, 18)], '#6a8ea0');
+    fillPoly(g, [P(u + 0.18, v + 0.26, 18), P(u + 0.76, v + 0.26, 18), P(u + 0.76, v + 0.64, 18), P(u + 0.18, v + 0.64, 18)], '#a8d0e0');
+    // 蛇口
+    const f = P(u + 0.46, v + 0.1, 18);
+    g.fillStyle = C.steelDD;
+    g.fillRect(Math.round(f.x), Math.round(f.y) - 7, 2, 7);
+    g.fillRect(Math.round(f.x) - 3, Math.round(f.y) - 8, 5, 2);
   }
 
   drawSeat(g, s, side) {
@@ -997,7 +1027,9 @@ export class Renderer {
     // 作業中は少し揺れる
     if (ent.phase === 'act' && ent.kind === 'worker') y += Math.sin(time * 18) > 0 ? -1 : 0;
     g.drawImage(spr, x, y);
-    if (ent.carrying) {
+    if (ent.carrying === 'dishes') {
+      this.drawDirtyDishes(g, x + (ent.faceLeft ? -2 : 4), y + 13);
+    } else if (ent.carrying) {
       const d = getDishSprite(RECIPE_MAP[ent.carrying]);
       g.drawImage(d, x + (ent.faceLeft ? -3 : 3), y + 12);
     }

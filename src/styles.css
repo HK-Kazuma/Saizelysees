@@ -186,6 +186,8 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .task-btn.cook { background: #e08a1a; }
 .task-serve .task-btn { background: var(--green); }
 .task-pay .task-btn { background: #c89a1a; }
+.task-bus .task-btn { background: #4a7a9a; color: var(--white); }
+.task-emoji { font-size: 22px; line-height: 1; }
 .task-status { font-size: 11px; color: #7a6a5a; white-space: nowrap; }
 .dish-icon { image-rendering: pixelated; display: block; }
 .dish-icon.dim { filter: brightness(0) opacity(0.35); }

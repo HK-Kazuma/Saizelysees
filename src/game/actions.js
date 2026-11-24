@@ -42,6 +42,15 @@ export function applyAction(state, action) {
       return okMsg();
     }
 
+    case 'BUS_TABLE': {
+      const d = state.dirty[action.seatId];
+      if (!d || d.claimedBy || state.seatOcc[action.seatId]) return fail('片付けられません');
+      const m = manager(state);
+      d.claimedBy = m.id;
+      m.queue.push({ type: 'bus', seatId: action.seatId, step: 'pickup' });
+      return okMsg();
+    }
+
     // ── クレーマー対応（格闘ミニゲーム） ──
     case 'START_FIGHT': {
       const c = state.customers.find((x) => x.id === action.customerId);

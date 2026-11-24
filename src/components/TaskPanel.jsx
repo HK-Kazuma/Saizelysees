@@ -42,6 +42,15 @@ function buildCards(state) {
       cards.push({ ...base, ratio: 1, title: '会計待ち', note: 'レジが空くのを待っています', kind: 'busy' });
     }
   });
+  // 食べ終わって食器が残っている席（お客さんが席を立ったら片付けられる）
+  for (const [seatId, d] of Object.entries(state.dirty || {})) {
+    if (state.seatOcc[seatId]) continue;
+    cards.push({
+      key: `dirty-${seatId}`, recipe: RECIPE_MAP[d.recipeId], ratio: 1, hideDish: true, iconText: '🍽',
+      title: '片付ける', note: d.claimedBy ? who(d.claimedBy) : '席に食器が残っています',
+      action: d.claimedBy ? null : { type: 'BUS_TABLE', seatId }, kind: 'bus',
+    });
+  }
   const actionable = (c) => !!(c.action || c.cook || c.fight);
   cards.sort((a, b) => Number(actionable(b)) - Number(actionable(a)) || a.ratio - b.ratio);
   return cards;
@@ -68,7 +77,7 @@ export default function TaskPanel({ state, act, onCook, onFight }) {
         )}
         {cards.map((c) => (
           <div key={c.key} className={`task task-${c.kind}`}>
-            <div className="task-icon">{c.hideDish ? <span className="bang">！</span> : <DishIcon recipe={c.recipe} size={34} />}</div>
+            <div className="task-icon">{c.hideDish ? <span className={c.iconText ? 'task-emoji' : 'bang'}>{c.iconText || '！'}</span> : <DishIcon recipe={c.recipe} size={34} />}</div>
             <div className="task-body">
               <div className="task-note">{c.note}</div>
               {c.ratio < 1 && (
