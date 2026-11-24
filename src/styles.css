@@ -429,7 +429,6 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   .logo-sub { display: none; }
 }
 /* iPhoneの横画面など：ノッチ分の余白を取り、上部バーを詰めてボタンが縦書きにならないようにする */
-.hud { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
 .hud > * { min-width: 0; }
 .logo { flex: 0 1 auto; }
 .logo-main { white-space: nowrap; }
