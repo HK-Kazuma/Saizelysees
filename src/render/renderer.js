@@ -9,7 +9,7 @@ import { STORE_SIZES } from '../data/shop.js';
 import { darkness, OPEN_MIN, CLOSE_MIN } from '../game/state.js';
 import { BACK_ROWS } from '../game/layout.js';
 import { view } from './view.js';
-import { OUT_M, WORLD, LAMP_H, lampSpots, drawGround, drawOutside, setBgOrigin } from './outside.js';
+import { OUT_M, WORLD, LAMP_H, lampSpots, treeLights, drawGround, drawOutside, setBgOrigin } from './outside.js';
 import logoUrl from '../assets/logo.png';
 
 const WH = 72; // 壁の高さ(px)
@@ -170,7 +170,7 @@ export class Renderer {
     this.bgOy = -wb.minY;
     setBgOrigin(this.bgOx, this.bgOy);
     const g = cv.getContext('2d');
-    g.fillStyle = '#66a547'; // 芝生
+    g.fillStyle = '#eef3fa'; // 雪原
     g.fillRect(0, 0, cv.width, cv.height);
     g.save();
     g.translate(this.bgOx, this.bgOy);
@@ -705,11 +705,47 @@ export class Renderer {
       g.fillStyle = hg;
       g.fillRect(Math.round(h.x) - 9, Math.round(h.y) - 9, 18, 18);
     }
+    this.drawTreeLights(g, dark);
     if (lit > 0.01) {
       g.globalAlpha = 0.1 * lit * dark;
       fillPoly(g, [P(0, -BACK_ROWS), P(L.cols, -BACK_ROWS), P(L.cols, L.rows), P(0, L.rows)], '#ffd890');
     }
     g.restore();
+  }
+
+  // 街路樹のイルミネーション（夜だけ。色とりどりの豆電球がまたたく）
+  drawTreeLights(g, dark) {
+    const t = performance.now() / 1000;
+    const COL = ['255,90,80', '255,214,90', '110,200,255', '120,230,140', '255,150,220'];
+    const x0 = -view.ox - 40, x1 = x0 + this.W + 80, y0 = -view.oy - 60, y1 = y0 + this.H + 120;
+    for (const tr of treeLights()) {
+      const p = P(tr.u, tr.v);
+      if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
+      const bx = Math.round(p.x), by = Math.round(p.y);
+      const pine = tr.kind === 2;
+      const n = pine ? 16 : 20;
+      for (let i = 0; i < n; i++) {
+        let dx, dy;
+        if (pine) {
+          // 三角の針葉樹：上ほどせまく
+          const k = hash(bx, by, 40 + i);
+          dy = -9 - Math.floor(k * 24);
+          const hw = Math.max(1, Math.round(2 + (-dy - 9) * -0.2 + 8 - (-dy - 9) * 0.28));
+          dx = Math.round((hash(bx, by, 80 + i) * 2 - 1) * hw);
+        } else {
+          const a = hash(bx, by, 40 + i) * Math.PI * 2, r = 0.35 + hash(bx, by, 80 + i) * 0.6;
+          dx = Math.round(Math.cos(a) * r * 14);
+          dy = -26 + Math.round(Math.sin(a) * r * 11);
+        }
+        const c = COL[Math.floor(hash(bx, by, 120 + i) * COL.length)];
+        const tw = 0.55 + 0.45 * Math.sin(t * (1.6 + hash(bx, by, 160 + i) * 1.6) + hash(bx, by, 200 + i) * 6.28);
+        const al = dark * tw;
+        g.fillStyle = `rgba(${c},${(0.22 * al).toFixed(3)})`;
+        g.fillRect(bx + dx - 1, by + dy - 1, 3, 3); // にじむ光
+        g.fillStyle = `rgba(${c},${Math.min(1, 1.1 * al).toFixed(3)})`;
+        g.fillRect(bx + dx, by + dy, 1, 1);
+      }
+    }
   }
 
   // ───────── 設備 ─────────
