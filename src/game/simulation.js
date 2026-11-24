@@ -118,6 +118,8 @@ function spawnCustomer(state) {
 function takeHalfCoins(state) {
   const lost = Math.floor(state.coins / 2);
   state.coins -= lost;
+  const ex = (state.daily.expense ||= {});
+  ex.penalty = (ex.penalty || 0) + lost;
   return lost;
 }
 
@@ -756,7 +758,7 @@ function step(state, dt) {
 }
 
 export function tick(state, realDt) {
-  if (state.report) return; // レポート表示中は時間が止まる
+  if (state.report || state.paused) return; // レポート表示中・メニューを開いている間は時間が止まる
   let dt = Math.min(realDt, 0.1) * state.speed;
   // 2倍速でも1ステップが大きくなりすぎないように分割する
   while (dt > 0 && !state.report) { // レポートが出たら、そのフレームの残りも進めない

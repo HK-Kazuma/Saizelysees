@@ -8,6 +8,7 @@ import TaskPanel from './components/TaskPanel.jsx';
 import CookingPanel from './components/CookingPanel.jsx';
 import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
+import PcMenu, { PcIcon } from './components/PcMenu.jsx';
 import ReportPanel from './components/ReportPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
@@ -118,6 +119,10 @@ export default function App() {
         <div className="stage">
           <GameCanvas store={store} poster={poster.small} act={act} onCook={openCooking} onFight={openFight} onPoster={() => setModal('gallery')} />
           <Effects store={store} toast={toast} />
+          <button className="pc-btn" onClick={() => setModal('pc')} aria-label="メニュー">
+            <PcIcon />
+            <span>メニュー</span>
+          </button>
         </div>
         <TaskPanel state={state} act={act} onCook={openCooking} onFight={openFight} />
       </div>
@@ -125,6 +130,7 @@ export default function App() {
       {fightId != null && <FightPanel state={state} customerId={fightId} act={act} onClose={() => setFightId(null)} toast={toast} />}
 
       {cookingId != null && <CookingPanel state={state} orderId={cookingId} act={act} onClose={() => setCookingId(null)} toast={toast} />}
+      {modal === 'pc' && <PcMenu state={state} act={act} onClose={() => setModal(null)} />}
       {modal === 'shop' && <ShopPanel state={state} act={act} onClose={() => setModal(null)} />}
       {modal === 'recipes' && <RecipeBook state={state} onClose={() => setModal(null)} />}
       {modal === 'gallery' && <Gallery poster={poster.large} onClose={() => setModal(null)} />}

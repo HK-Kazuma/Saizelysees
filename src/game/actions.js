@@ -6,9 +6,12 @@ import { createInitialState, clearSave, emptyDaily } from './state.js';
 const fail = (msg) => ({ ok: false, msg });
 const okMsg = (msg) => ({ ok: true, msg });
 
-function spend(state, price) {
+// cat: 出費の種類（EXPENSE_CATS の id）。その日の出費として記録する
+function spend(state, price, cat) {
   if (state.coins < price) return false;
   state.coins -= price;
+  const ex = (state.daily.expense ||= {});
+  ex[cat] = (ex[cat] || 0) + price;
   return true;
 }
 
@@ -113,7 +116,7 @@ export function applyAction(state, action) {
       const cur = state.equipment[action.id];
       if (cur.owned) return fail('購入済みです');
       if (state.level < def.lv) return fail(`Lv${def.lv}で解放`);
-      if (!spend(state, def.price)) return fail('お金が足りません');
+      if (!spend(state, def.price, 'equip')) return fail('お金が足りません');
       cur.owned = true;
       if (action.id === 'drink') rebuildLayout(state);
       state.events.push({ type: 'purchase', text: `${def.name}を設置しました` });
@@ -124,7 +127,7 @@ export function applyAction(state, action) {
       const cur = state.equipment[action.id];
       const price = def.upgrade[cur.lv - 1];
       if (!cur.owned || price == null) return fail('これ以上強化できません');
-      if (!spend(state, price)) return fail('お金が足りません');
+      if (!spend(state, price, 'equip')) return fail('お金が足りません');
       cur.lv++;
       state.events.push({ type: 'purchase', text: `${def.name}が Lv${cur.lv} になりました` });
       return okMsg();
@@ -135,7 +138,7 @@ export function applyAction(state, action) {
       const max = STORE_SIZES[state.sizeIdx].staffMax;
       if (state.level < def.lv) return fail(`Lv${def.lv}で解放`);
       if (n >= max) return fail('店舗を拡張すると雇えます');
-      if (!spend(state, def.price[n])) return fail('お金が足りません');
+      if (!spend(state, def.price[n], 'staff')) return fail('お金が足りません');
       state.staff[action.role]++;
       syncWorkers(state);
       state.events.push({ type: 'purchase', text: `${def.name}を雇いました` });
@@ -145,7 +148,7 @@ export function applyAction(state, action) {
       const def = DECOR_MAP[action.id];
       if (state.decor[action.id]) return fail('購入済みです');
       if (state.level < def.lv) return fail(`Lv${def.lv}で解放`);
-      if (!spend(state, def.price)) return fail('お金が足りません');
+      if (!spend(state, def.price, 'decor')) return fail('お金が足りません');
       state.decor[action.id] = true;
       if (action.id === 'plant') rebuildLayout(state);
       state.events.push({ type: 'purchase', text: `${def.name}を飾りました` });
@@ -153,7 +156,7 @@ export function applyAction(state, action) {
     }
     case 'BUY_TABLE': {
       if (state.tables >= state.layout.tableCapacity) return fail('店舗を拡張すると置けます');
-      if (!spend(state, TABLE_PRICE(state.tables))) return fail('お金が足りません');
+      if (!spend(state, TABLE_PRICE(state.tables), 'expand')) return fail('お金が足りません');
       state.tables++;
       rebuildLayout(state);
       state.events.push({ type: 'purchase', text: 'テーブルを追加しました' });
@@ -163,7 +166,7 @@ export function applyAction(state, action) {
       const next = STORE_SIZES[state.sizeIdx + 1];
       if (!next) return fail('これ以上拡張できません');
       if (state.level < next.lv) return fail(`Lv${next.lv}で解放`);
-      if (!spend(state, next.price)) return fail('お金が足りません');
+      if (!spend(state, next.price, 'expand')) return fail('お金が足りません');
       state.sizeIdx++;
       rebuildLayout(state);
       state.events.push({ type: 'expand', text: `「${next.name}」に拡張しました！` });
@@ -171,9 +174,18 @@ export function applyAction(state, action) {
     }
 
     // ── その他 ──
-    case 'CLOSE_REPORT':
+    case 'CLOSE_REPORT': {
+      const r = state.report;
+      // その日の記録を残す（店舗情報の売上・出費グラフ用）
+      if (r && !state.history.some((h) => h.day === r.day)) {
+        state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
+      }
       state.report = null;
       state.daily = emptyDaily();
+      return okMsg();
+    }
+    case 'SET_PAUSED': // メニューを開いている間は時間を止める
+      state.paused = !!action.paused;
       return okMsg();
     case 'SET_SPEED':
       state.speed = action.speed;

@@ -65,7 +65,17 @@ export function unlocksAt(level, state) {
 }
 
 // その日の集計（閉店後のレポート用）
-export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0 });
+export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0, expense: {} });
+
+// 出費の種類（店舗情報の出費タブ用）
+export const EXPENSE_CATS = [
+  { id: 'equip', name: '設備（設置・強化）' },
+  { id: 'staff', name: 'スタッフの雇用' },
+  { id: 'decor', name: '装飾' },
+  { id: 'expand', name: '店舗の拡張・テーブル' },
+  { id: 'penalty', name: 'クレーマー被害' },
+];
+export const sumExpense = (e) => Object.values(e || {}).reduce((s, v) => s + v, 0);
 
 // 23:00に表示するレポート。売れた料理を多い順に並べる
 export function makeReport(state) {
@@ -73,7 +83,7 @@ export function makeReport(state) {
   const items = Object.entries(d.sold)
     .map(([id, v]) => ({ id, n: v.n, amount: v.amount }))
     .sort((a, b) => b.n - a.n || b.amount - a.amount);
-  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, coins: state.coins };
+  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins };
 }
 
 export function createInitialState() {
@@ -84,6 +94,7 @@ export function createInitialState() {
     day: 1,
     clock: OPEN_MIN,
     daily: emptyDaily(),
+    history: [], // 日ごとの記録 { day, sales, served, angry, expense }（店舗情報のグラフ用）
     report: null, // 閉店後のレポート（表示中は時間が止まる）
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     sizeIdx: 0,
@@ -100,6 +111,7 @@ export function createInitialState() {
     orders: [],
     seatOcc: {},
     eqBusy: {},
+    paused: false, // メニュー表示中は true（時間が止まる）
     dirty: {}, // 食器が残っている席 { seatId: { recipeId, claimedBy } }
     nextId: 1,
     events: [],
@@ -109,7 +121,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['day', 'clock', 'daily', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'daily', 'history', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {
