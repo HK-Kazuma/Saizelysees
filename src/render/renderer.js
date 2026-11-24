@@ -1039,11 +1039,12 @@ export class Renderer {
     if (ent.phase === 'act' && ent.kind === 'worker') y += Math.sin(time * 18) > 0 ? -1 : 0;
     g.drawImage(spr, x, y);
     if (ent.hasDrink && !ent.sitting && ent.kind === 'customer') this.drawCup(g, x + (ent.faceLeft ? -2 : 9), y + 12);
+    const stack = Math.min(Math.max(ent.carryCount || 1, 1), 3); // まとめて運ぶときは重ねて持つ（最大3段で表示）
     if (ent.carrying === 'dishes') {
-      this.drawDirtyDishes(g, x + (ent.faceLeft ? -2 : 4), y + 13);
+      for (let i = 0; i < stack; i++) this.drawDirtyDishes(g, x + (ent.faceLeft ? -2 : 4), y + 13 - i * 3);
     } else if (ent.carrying) {
       const d = getDishSprite(RECIPE_MAP[ent.carrying]);
-      g.drawImage(d, x + (ent.faceLeft ? -3 : 3), y + 12);
+      for (let i = 0; i < stack; i++) g.drawImage(d, x + (ent.faceLeft ? -3 : 3), y + 12 - i * 4);
     }
     g.globalAlpha = 1;
     if (ent.kind === 'worker' && ent.role === 'manager') {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { HALL_TASK_MAP, hallPrefOf } from '../data/staffTasks.js';
+import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
+import { SPEED } from '../game/simulation.js';
 import { STAFF, staffLimit } from '../data/shop.js';
 import { getCharSprite } from '../render/sprites.js';
 
@@ -22,6 +23,7 @@ export default function StaffSettings({ state, act, onClose }) {
   const hall = state.workers.filter((w) => w.role === 'hall').sort((a, b) => a.index - b.index);
   const kitchen = state.workers.filter((w) => w.role === 'kitchen').sort((a, b) => a.index - b.index);
   const [sel, setSel] = useState('hall0');
+  const [tab, setTab] = useState('skill'); // skill=能力 / prio=優先業務
   const cur = [...hall, ...kitchen].find((w) => `${w.role}${w.index}` === sel) || hall[0] || kitchen[0] || null;
 
   // 導入済みの設備で不要になった業務・必要な設備がない業務の理由
@@ -48,6 +50,8 @@ export default function StaffSettings({ state, act, onClose }) {
   };
 
   const tasks = cur && cur.role === 'hall' ? hallPrefOf(state, cur.index) : null;
+  const skills = cur && cur.role === 'hall' ? hallSkillOf(state, cur.index) : null;
+  const curName = cur ? `${cur.role === 'hall' ? 'ホール' : 'キッチン'}${cur.index + 1}` : '';
 
   return (
     <div className="modal-back" onClick={onClose}>
@@ -55,7 +59,7 @@ export default function StaffSettings({ state, act, onClose }) {
         <div className="modal-head">
           <span className="modal-title">従業員</span>
           <span className="modal-coins">
-            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}
+            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}　¥{state.coins.toLocaleString()}
           </span>
           <button className="close-btn" onClick={onClose}>とじる</button>
         </div>
@@ -77,13 +81,55 @@ export default function StaffSettings({ state, act, onClose }) {
 
           </div>
           <div className="st-main">
-          {cur && !tasks && (
-            <div className="st-help">キッチンスタッフは、注文が入った料理を順番に調理します（設定はありません）。</div>
+          {cur && (
+            <div className="st-tabs">
+              <button className={`tab ${tab === 'skill' || !tasks ? 'on' : ''}`} onClick={() => setTab('skill')}>{curName} の能力</button>
+              {tasks && <button className={`tab ${tab === 'prio' ? 'on' : ''}`} onClick={() => setTab('prio')}>優先業務</button>}
+            </div>
           )}
 
-          {cur && tasks && (
+          {cur && (tab === 'skill' || !tasks) && (
             <>
-              <div className="st-title">ホール{cur.index + 1} の優先業務</div>
+              <div className="st-stats">
+                <div className="si-stat"><small>移動の速さ</small><b>{SPEED[cur.role]}マス/秒</b></div>
+                <div className="si-stat"><small>担当</small><b>{cur.role === 'hall' ? 'ホール' : '調理'}</b></div>
+              </div>
+              {!skills && <div className="st-help">キッチンスタッフは、注文が入った料理を順番に調理します。調理の速さは設備のレベルで上がります（スタッフの強化はありません）。</div>}
+              {skills && (
+                <>
+                  <div className="st-help">業務ごとに最大Lv{SKILL_MAX}まで強化できます。注文取り・会計・ドリンク交換は作業が速くなり、配膳・片付けは1回の往復で運べる数がLvと同じだけ増えます。</div>
+                  <div className="st-list">
+                    {HALL_SKILLS.map((def) => {
+                      const lv = skills[def.id];
+                      const price = SKILL_PRICE[lv];
+                      const max = lv >= SKILL_MAX;
+                      return (
+                        <div key={def.id} className="st-row">
+                          <div className="st-info">
+                            <div className="st-name">{def.name}<span className="st-lv">Lv{lv}</span></div>
+                            <div className="st-desc">{skillEffect(def, lv)}{!max && ` → ${skillEffect(def, lv + 1)}`}</div>
+                          </div>
+                          <span className="st-pips">{Array.from({ length: SKILL_MAX }, (_, i) => <i key={i} className={i < lv ? 'on' : ''} />)}</span>
+                          {max ? (
+                            <span className="shop-done">MAX</span>
+                          ) : (
+                            <button className="buy-btn" disabled={state.coins < price} onClick={() => act({ type: 'UPGRADE_SKILL', staff: cur.index, skill: def.id })}>
+                              <span className="buy-label">強化</span>
+                              <span className="buy-price">¥{price.toLocaleString()}</span>
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {cur && tasks && tab === 'prio' && (
+            <>
+              <div className="st-title">{curName} の優先業務</div>
               <div className="st-help">上にある業務ほど優先して行います。オフにした業務は自動ではやりません（店長への指示は今までどおり使えます）。</div>
               <div className="st-list">
                 {tasks.map((t, i) => {

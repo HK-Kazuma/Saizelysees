@@ -1,5 +1,5 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
-import { defaultHallTasks, hallPrefOf } from '../data/staffTasks.js';
+import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
 import { createInitialState, clearSave, emptyDaily, drinkCap } from './state.js';
@@ -35,7 +35,7 @@ export function applyAction(state, action) {
       if (state.customers.find((x) => x.id === o.customerId)?.trip) return fail('お客さんがドリンクを取りに行っています');
       const m = manager(state);
       o.claimedBy = m.id;
-      m.queue.push({ type: 'serve', orderId: o.id, step: 'pickup' });
+      m.queue.push({ type: 'serve', orderIds: [o.id], carried: [], orderId: o.id, step: 'pickup' });
       return okMsg();
     }
     case 'CHECKOUT': {
@@ -64,6 +64,18 @@ export function applyAction(state, action) {
     case 'RESET_HALL_TASKS':
       state.hallPrefs[action.staff] = defaultHallTasks();
       return okMsg();
+    case 'UPGRADE_SKILL': {
+      // ホールスタッフの能力を1段階強化する
+      if (action.staff >= state.staff.hall || !HALL_SKILLS.some((s) => s.id === action.skill)) return fail('強化できません');
+      const skills = hallSkillOf(state, action.staff);
+      const lv = skills[action.skill];
+      if (lv >= SKILL_MAX) return fail('これ以上強化できません');
+      if (!spend(state, SKILL_PRICE[lv], 'staff')) return fail('お金が足りません');
+      skills[action.skill] = lv + 1;
+      const name = HALL_SKILLS.find((s) => s.id === action.skill).name;
+      state.events.push({ type: 'purchase', text: `ホール${action.staff + 1}の${name}が Lv${lv + 1} になりました` });
+      return okMsg();
+    }
     case 'COPY_HALL_TASKS': {
       // この人の設定を、ホールスタッフ全員にコピーする
       const src = hallPrefOf(state, action.staff);
@@ -82,7 +94,7 @@ export function applyAction(state, action) {
       if (!d || d.claimedBy || state.seatOcc[action.seatId]) return fail('片付けられません');
       const m = manager(state);
       d.claimedBy = m.id;
-      m.queue.push({ type: 'bus', seatId: action.seatId, step: 'pickup' });
+      m.queue.push({ type: 'bus', seatIds: [action.seatId], done: 0, seatId: action.seatId, step: 'pickup' });
       return okMsg();
     }
 

@@ -11,9 +11,9 @@ import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
 import { makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
-import { hallPrefOf } from '../data/staffTasks.js';
+import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
-const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
+export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
 const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーである確率
 
 const rand = (a, b) => a + Math.random() * (b - a);
@@ -456,6 +456,46 @@ function freePassSlot(state) {
   return null;
 }
 
+// ───────── ホールスタッフの能力 ─────────
+const skillLv = (state, w, id) => (w.role === 'hall' ? hallSkillOf(state, w.index)[id] : 1);
+const timeMult = (state, w, id) => skillTimeMult(skillLv(state, w, id)); // 作業時間の倍率
+const carryCap = (state, w, id) => skillLv(state, w, id); // 1回の往復で運べる数
+
+// 配膳（複数まとめて運ぶ）：消えた注文を外し、次に向かう注文(orderId)と手に持っている数を合わせる
+function serveSync(state, w, t) {
+  t.orderIds ||= [t.orderId];
+  t.carried ||= [];
+  t.orderIds = t.orderIds.filter((id) => {
+    const o = findOrder(state, id);
+    return !!o && !!findCustomer(state, o.customerId);
+  });
+  t.carried = t.carried.filter((id) => t.orderIds.includes(id));
+  const pending = t.orderIds.filter((id) => !t.carried.includes(id));
+  if (t.step === 'pickup' && pending.length) t.orderId = pending[0];
+  else if (t.carried.length) {
+    t.step = 'deliver';
+    t.orderId = t.carried[0];
+  } else return false;
+  w.carrying = t.carried.length ? findOrder(state, t.carried[0]).recipeId : null;
+  w.carryCount = t.carried.length;
+  return true;
+}
+
+// 片付け（複数の席をまわる）：まだ片付けていない席(seatIds)の先頭へ。全部持ったら洗い場へ
+function busSync(state, w, t) {
+  t.seatIds ||= [t.seatId];
+  t.done ||= 0;
+  if (t.step === 'pickup') {
+    t.seatIds = t.seatIds.filter((id) => state.dirty[id]?.claimedBy === w.id && state.layout.seatMap[id]);
+    if (t.seatIds.length) t.seatId = t.seatIds[0];
+    else if (t.done > 0) t.step = 'wash';
+    else return false;
+  }
+  w.carrying = t.done > 0 ? 'dishes' : null;
+  w.carryCount = t.done;
+  return true;
+}
+
 function taskTarget(state, task) {
   const L = state.layout;
   switch (task.type) {
@@ -499,8 +539,9 @@ function taskValid(state, task) {
     case 'drink':
       return !!state.equipment.drink.owned && state.drinkStock <= 0;
     case 'bus':
-      return task.step === 'wash' || (!!state.dirty[task.seatId] && !!state.layout.seatMap[task.seatId]);
+      return task.step === 'wash' || (task.done || 0) > 0 || (task.seatIds || [task.seatId]).some((id) => !!state.dirty[id] && !!state.layout.seatMap[id]);
     case 'serve':
+      return (task.orderIds || [task.orderId]).some((id) => !!findOrder(state, id) && !!findCustomer(state, findOrder(state, id).customerId));
     case 'cook':
       return !!findOrder(state, task.orderId) && !!findCustomer(state, findOrder(state, task.orderId).customerId);
     default:
@@ -512,8 +553,21 @@ function releaseClaim(state, w, task) {
   if (task.type === 'drink') {
     if (state.drinkClaim === w.id) state.drinkClaim = null;
   } else if (task.type === 'bus') {
-    const d = state.dirty[task.seatId];
-    if (d && d.claimedBy === w.id) d.claimedBy = null;
+    for (const id of task.seatIds || [task.seatId]) {
+      const d = state.dirty[id];
+      if (d && d.claimedBy === w.id) d.claimedBy = null;
+    }
+  } else if (task.type === 'serve') {
+    // 運んでいる途中の料理はパス台に戻す
+    for (const id of task.orderIds || [task.orderId]) {
+      const o = findOrder(state, id);
+      if (!o || o.claimedBy !== w.id) continue;
+      o.claimedBy = null;
+      if (o.status === 'carrying') {
+        o.status = 'ready';
+        o.passSlot = freePassSlot(state);
+      }
+    }
   } else if (task.type === 'take' || task.type === 'checkout') {
     const c = findCustomer(state, task.customerId);
     if (c && c.claimedBy === w.id) c.claimedBy = null;
@@ -540,13 +594,15 @@ function abortTask(state, w) {
   w.task = null;
   w.phase = null;
   w.carrying = null;
+  w.carryCount = 0;
 }
 
 function actTime(state, w) {
   const t = w.task;
-  if (t.type === 'take') return 0.8;
-  if (t.type === 'checkout') return 0.9;
-  if (t.type === 'drink') return DRINK_SWAP_TIME;
+  // ホールスタッフは能力レベルに応じて速くなる
+  if (t.type === 'take') return 0.8 * timeMult(state, w, 'take');
+  if (t.type === 'checkout') return 0.9 * timeMult(state, w, 'checkout');
+  if (t.type === 'drink') return DRINK_SWAP_TIME * timeMult(state, w, 'drink');
   if (t.type === 'bus') return t.step === 'pickup' ? 0.8 : 0.6;
   if (t.type === 'serve') return t.step === 'pickup' ? 0.3 : 0.4;
   if (t.type === 'cook') {
@@ -580,32 +636,40 @@ function completeAct(state, w) {
   } else if (t.type === 'bus') {
     if (t.step === 'pickup') {
       delete state.dirty[t.seatId]; // 食器を持ち上げた時点で席が空く
-      w.carrying = 'dishes';
-      t.step = 'wash';
+      t.done++;
+      t.seatIds = t.seatIds.filter((id) => id !== t.seatId);
+      busSync(state, w, t); // まだ担当の席があれば次の席へ、なければ洗い場へ
       w.phase = 'walk';
       setDest(state, w, taskTarget(state, t));
       return;
     }
     w.carrying = null;
+    w.carryCount = 0;
     w.task = null;
   } else if (t.type === 'serve') {
     const o = findOrder(state, t.orderId);
     if (t.step === 'pickup') {
       o.status = 'carrying';
       o.passSlot = null;
-      w.carrying = o.recipeId;
-      t.step = 'deliver';
+      t.carried.push(o.id);
+    } else {
+      const c = findCustomer(state, o.customerId);
+      c.state = 'eating';
+      c.timer = rand(6, 9);
+      c.dish = o.recipeId;
+      c.quality = o.quality;
+      state.orders = state.orders.filter((x) => x !== o);
+      t.orderIds = t.orderIds.filter((id) => id !== o.id);
+      t.carried = t.carried.filter((id) => id !== o.id);
+    }
+    // まだ取りに行く料理・届ける料理があれば続ける
+    if (serveSync(state, w, t)) {
       w.phase = 'walk';
       setDest(state, w, taskTarget(state, t));
       return;
     }
-    const c = findCustomer(state, o.customerId);
-    c.state = 'eating';
-    c.timer = rand(6, 9);
-    c.dish = o.recipeId;
-    c.quality = o.quality;
-    state.orders = state.orders.filter((x) => x !== o);
     w.carrying = null;
+    w.carryCount = 0;
     w.task = null;
   } else if (t.type === 'cook') {
     const o = findOrder(state, t.orderId);
@@ -661,10 +725,13 @@ function findHallTask(state, w, id) {
       return { type: 'checkout', customerId: payer.id };
     }
     case 'serve': {
-      const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip);
-      if (!ready) return null;
-      ready.claimedBy = w.id;
-      return { type: 'serve', orderId: ready.id, step: 'pickup' };
+      // 配膳のレベルの数だけ、できた料理をまとめて運ぶ
+      const ready = state.orders
+        .filter((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip)
+        .slice(0, carryCap(state, w, 'serve'));
+      if (!ready.length) return null;
+      ready.forEach((o) => (o.claimedBy = w.id));
+      return { type: 'serve', orderIds: ready.map((o) => o.id), carried: [], orderId: ready[0].id, step: 'pickup' };
     }
     case 'take': {
       if (state.equipment.qrorder?.owned) return null;
@@ -680,10 +747,13 @@ function findHallTask(state, w, id) {
       return { type: 'drink' };
     }
     case 'bus': {
-      const seatId = Object.keys(state.dirty).find((sid) => !state.dirty[sid].claimedBy && !state.seatOcc[sid] && state.layout.seatMap[sid]);
-      if (!seatId) return null;
-      state.dirty[seatId].claimedBy = w.id;
-      return { type: 'bus', seatId, step: 'pickup' };
+      // 片付けのレベルの数だけ、食器の残った席をまとめてまわる
+      const seatIds = Object.keys(state.dirty)
+        .filter((sid) => !state.dirty[sid].claimedBy && !state.seatOcc[sid] && state.layout.seatMap[sid])
+        .slice(0, carryCap(state, w, 'bus'));
+      if (!seatIds.length) return null;
+      seatIds.forEach((sid) => (state.dirty[sid].claimedBy = w.id));
+      return { type: 'bus', seatIds, done: 0, seatId: seatIds[0], step: 'pickup' };
     }
     default:
       return null;
@@ -728,6 +798,18 @@ function updateWorker(state, w, dt) {
     return;
   }
   if (w.task && !taskValid(state, w.task)) abortTask(state, w);
+  // まとめて運ぶ配膳・片付け：途中でお客さんが帰った分を外し、向かう先が変わったら歩き直す
+  if (w.task && (w.task.type === 'serve' || w.task.type === 'bus')) {
+    const t = w.task;
+    const key = () => `${t.step}|${t.type === 'serve' ? t.orderId : t.seatId}`;
+    const before = key();
+    const ok = t.type === 'serve' ? serveSync(state, w, t) : busSync(state, w, t);
+    if (!ok) abortTask(state, w);
+    else if (key() !== before) {
+      w.phase = 'walk';
+      setDest(state, w, taskTarget(state, t));
+    }
+  }
 
   if (!w.task) {
     let next = null;

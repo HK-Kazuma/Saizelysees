@@ -860,4 +860,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .st-arrow { padding: 4px 9px; min-height: 30px; }
 .st-arrow:disabled { opacity: 0.3; }
 .st-toggle { min-width: 52px; text-align: center; background: #d8d0c0; }
+.st-tabs { display: flex; gap: 6px; }
+.st-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+.st-pips { display: flex; gap: 2px; flex: 0 0 auto; }
+.st-pips i { width: 8px; height: 10px; background: #d8d0c0; box-shadow: 0 0 0 1px var(--ink); display: block; }
+.st-pips i.on { background: var(--gold); }
+.st-lv { font-size: 11px; color: var(--green); margin-left: 4px; }
 .st-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }

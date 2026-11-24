@@ -9,6 +9,30 @@ export const HALL_TASKS = [
 export const HALL_TASK_MAP = Object.fromEntries(HALL_TASKS.map((t) => [t.id, t]));
 export const defaultHallTasks = () => HALL_TASKS.map((t) => ({ id: t.id, on: true }));
 
+// ───────── ホールスタッフの能力（1人ずつ強化できる。最大Lv5） ─────────
+// speed: 作業時間が短くなる / carry: 1回の往復で運べる数が Lv と同じだけ増える
+export const SKILL_MAX = 5;
+export const SKILL_PRICE = [0, 2000, 5000, 10000, 18000]; // Lv n → n+1 の価格は SKILL_PRICE[n]
+export const HALL_SKILLS = [
+  { id: 'take', name: '注文取り', kind: 'speed' },
+  { id: 'serve', name: '配膳', kind: 'carry' },
+  { id: 'bus', name: '片付け', kind: 'carry' },
+  { id: 'checkout', name: '会計', kind: 'speed' },
+  { id: 'drink', name: 'ドリンク交換', kind: 'speed' },
+];
+export const skillTimeMult = (lv) => 1 - 0.15 * (lv - 1); // Lv1=100% … Lv5=40%
+export const skillEffect = (def, lv) => (def.kind === 'carry' ? `一度に${lv}つ運べる` : `作業時間 ${Math.round(skillTimeMult(lv) * 100)}%`);
+export const defaultSkills = () => Object.fromEntries(HALL_SKILLS.map((s) => [s.id, 1]));
+export const hallSkillOf = (state, index) => (state.hallSkills[index] ||= defaultSkills());
+export function normalizeSkills(obj) {
+  const out = defaultSkills();
+  for (const k of Object.keys(out)) {
+    const v = Math.floor(Number(obj?.[k]));
+    if (v >= 1 && v <= SKILL_MAX) out[k] = v;
+  }
+  return out;
+}
+
 // ホールスタッフ1人ぶんの設定（index は雇った順の番号）。まだ無ければ初期設定を作る
 export const hallPrefOf = (state, index) => (state.hallPrefs[index] ||= defaultHallTasks());
 
