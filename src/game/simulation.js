@@ -178,6 +178,18 @@ function sendHomeCustomers(state) {
   }
 }
 
+// 無人レジの行列：会計待ちの順番(payOrder)で並び位置を決め、前が空いたらすぐ詰める
+function updatePayQueue(state, c) {
+  const L = state.layout;
+  c.payOrder ??= state.paySeq = (state.paySeq || 0) + 1;
+  const rank = state.customers.filter((o) => (o.state === 'toPay' || o.state === 'atRegister') && (o.payOrder ?? Infinity) < c.payOrder).length;
+  const qi = Math.min(rank, L.payQueue.length - 1);
+  if (c.qi !== qi) {
+    c.qi = qi;
+    setDest(state, c, L.payQueue[qi]);
+  }
+}
+
 function updateCustomer(state, c, dt) {
   const L = state.layout;
   switch (c.state) {
@@ -214,16 +226,23 @@ function updateCustomer(state, c, dt) {
       }
       break;
     case 'wantPay': {
-      const busy = state.customers.some((o) => o.state === 'toPay' || o.state === 'atRegister');
-      if (!busy) {
+      const payers = state.customers.filter((o) => o.state === 'toPay' || o.state === 'atRegister').length;
+      // 無人レジがあれば列の空きがある限りレジへ向かう。なければ今までどおり1人ずつ
+      const full = state.equipment.selfreg?.owned ? payers >= L.payQueue.length : payers > 0;
+      if (!full) {
         freeSeat(state, c);
         c.state = 'toPay';
+        c.payOrder = state.paySeq = (state.paySeq || 0) + 1;
+        c.qi = 0;
         setDest(state, c, L.paySpot);
+        if (state.equipment.selfreg?.owned) updatePayQueue(state, c);
       }
       break;
     }
     case 'toPay':
+      if (state.equipment.selfreg?.owned) updatePayQueue(state, c);
       if (move(c, dt, SPEED.customer)) {
+        if (c.qi > 0) break; // 前の人が会計中。並んで待つ
         c.state = 'atRegister';
         faceToward(c, L.register);
         c.timer = 0.8; // 無人レジの操作時間
@@ -623,6 +642,7 @@ export function rebuildLayout(state) {
     if (c.state === 'entering') setDest(state, c, L.seatMap[c.seatId]);
     else if (c.state === 'toPay' || c.state === 'atRegister') {
       c.state = 'toPay';
+      c.qi = 0;
       setDest(state, c, L.paySpot);
     } else if (c.state === 'leaving') exitPath(state, c);
   }
