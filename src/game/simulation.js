@@ -249,8 +249,8 @@ function updateCustomer(state, c, dt) {
       }
       break;
     case 'atRegister':
-      // 無人レジがあれば、お客さんが自分で会計して帰る（店員が担当中なら任せる）
-      if (state.equipment.selfreg?.owned && !c.claimedBy) {
+      // 無人レジがあれば、お客さんが自分で会計して帰る（店員の予約があっても待たずに流す）
+      if (state.equipment.selfreg?.owned) {
         c.timer -= dt;
         if (c.timer <= 0) {
           pay(state, c);

@@ -103,7 +103,7 @@ export function buildLayout(state) {
     register,
     paySpot: { x: 1, y: rows - 2 },
     // 無人レジの待ち行列（先頭がレジ前、以降は後ろに並ぶ）
-    payQueue: [{ x: 1, y: rows - 2 }, { x: 2, y: rows - 2 }, { x: 2, y: rows - 3 }, { x: 2, y: rows - 4 }],
+    payQueue: [{ x: 1, y: rows - 2 }, { x: 2, y: rows - 2 }, { x: 2, y: rows - 3 }, { x: 2, y: rows - 4 }, { x: 2, y: rows - 5 }, { x: 1, y: rows - 5 }],
     cashierSpot: { x: 1, y: rows - 4 },
     hallIdle: [{ x: 2, y: 3 }, { x: 3, y: 3 }, { x: 4, y: 4 }, { x: 2, y: 4 }, { x: 3, y: 4 }],
     kitchenIdle: [{ x: cols - 2, y: 1 }, { x: cols - 3, y: 1 }, { x: cols - 4, y: 1 }, { x: cols - 5, y: 1 }, { x: cols - 6, y: 1 }],
