@@ -865,7 +865,8 @@ function step(state, dt) {
 }
 
 export function tick(state, realDt) {
-  if (state.report || state.paused) return; // レポート表示中・メニューを開いている間は時間が止まる
+  // レポート表示中・メニューを開いている間・クレーマーと対決している間は時間が止まる
+  if (state.report || state.paused || state.customers.some((c) => c.state === 'fighting')) return;
   let dt = Math.min(realDt, 0.1) * state.speed;
   // 2倍速でも1ステップが大きくなりすぎないように分割する
   while (dt > 0 && !state.report) { // レポートが出たら、そのフレームの残りも進めない
