@@ -52,7 +52,7 @@ export default function App() {
         window.removeEventListener('keydown', kick);
       };
     }
-    playBgm('game');
+    playBgm(fightId != null ? 'fight' : 'game'); // クレーマーとのバトル中は専用BGM
     // ゲーム中は、どのボタンを押しても効果音
     const onClick = (e) => {
       const b = e.target.closest?.('button, [role="button"]');
@@ -60,7 +60,7 @@ export default function App() {
     };
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
-  }, [started]);
+  }, [started, fightId]);
 
   const toast = useCallback((text, kind = 'info') => {
     const id = ++toastId.current;

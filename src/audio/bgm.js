@@ -34,6 +34,19 @@ const TRACKS = {
     bass: ['C3', null, 'C3', null, 'G3', null, 'G3', null, 'C3', null, 'C3', null, 'G3', null, 'G3', null,
            'F3', null, 'F3', null, 'C3', null, 'C3', null, 'G3', null, 'G3', null, 'C3', null, 'C3', null],
   },
+  // クレーマーとのバトル：速くて緊迫感のある短調（Am - F - G - E）
+  fight: {
+    bpm: 168,
+    wave: 'sawtooth',
+    melody: [
+      'A5', 'A5', 'C6', 'A5', 'E6', 'D6', 'C6', 'A5',
+      'F5', 'F5', 'A5', 'F5', 'C6', 'B5', 'A5', 'F5',
+      'G5', 'G5', 'B5', 'G5', 'D6', 'C6', 'B5', 'G5',
+      'E5', 'G#5', 'B5', 'E6', 'D6', 'B5', 'G#5', 'E5',
+    ],
+    bass: ['A2', 'A2', 'A3', 'A2', 'A2', 'A2', 'A3', 'A2', 'F2', 'F2', 'F3', 'F2', 'F2', 'F2', 'F3', 'F2',
+           'G2', 'G2', 'G3', 'G2', 'G2', 'G2', 'G3', 'G2', 'E2', 'E2', 'E3', 'E2', 'E2', 'E2', 'E3', 'E2'],
+  },
 };
 
 let ctx = null;
@@ -131,6 +144,89 @@ export function playClickSfx() {
   const t = c.currentTime + 0.005;
   tone(N('A5'), t, 0.07, 'square', 0.35);
   tone(N('E6'), t + 0.04, 0.09, 'square', 0.3);
+}
+
+// 音程が滑る短い音（ぷん！の1音ぶん）
+function glide(f0, f1, time, dur, type, gain) {
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(f0, time);
+  osc.frequency.exponentialRampToValueAtTime(f1, time + dur);
+  g.gain.setValueAtTime(0, time);
+  g.gain.linearRampToValueAtTime(gain, time + 0.008);
+  g.gain.setValueAtTime(gain, time + dur * 0.55);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  osc.connect(g).connect(master);
+  osc.start(time);
+  osc.stop(time + dur + 0.02);
+}
+
+// クレーマーが怒りだしたときの「ぷんぷん！」
+// 「ぷっ」と跳ね上がってから「ん」と下がる音を、はっきり2回
+export function playAngrySfx() {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.01;
+  // 「ぷんぷん」を2セット連続（0.26秒間隔の2回 × 0.75秒ずらして2セット）
+  [0, 0.26, 0.75, 1.01].forEach((d) => {
+    glide(380, 620, t + d, 0.05, 'square', 0.55); // ぷっ（跳ねる）
+    glide(620, 300, t + d + 0.05, 0.16, 'square', 0.5); // ん〜（下がる）
+    glide(310, 150, t + d + 0.05, 0.16, 'sawtooth', 0.35); // 下に太さを足す
+  });
+}
+
+// ノイズ（ざらっとした音）を鳴らす。hp: ハイパスの周波数
+function noise(time, dur, gain, hp) {
+  const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const f = ctx.createBiquadFilter();
+  f.type = 'highpass';
+  f.frequency.value = hp;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(gain, time);
+  g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+  src.connect(f).connect(g).connect(master);
+  src.start(time);
+}
+
+// お玉でお皿を叩き割ったとき「ぱりぃん！」
+export function playPlateBreakSfx() {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.005;
+  noise(t, 0.28, 0.9, 3500); // 割れるザラッ
+  tone(N('E7'), t, 0.18, 'triangle', 0.5);
+  [N('C7'), N('G7'), N('A6'), N('D7'), N('B6')].forEach((f, i) => tone(f, t + 0.04 + i * 0.045, 0.12, 'triangle', 0.35)); // 破片が散るキラキラ
+}
+
+// お玉がクレーマーに当たったとき「カーン！」
+export function playLadleHitSfx() {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.005;
+  noise(t, 0.05, 0.8, 1500); // 打撃の瞬間
+  tone(N('A5'), t, 0.35, 'square', 0.4);
+  tone(N('E6'), t, 0.3, 'triangle', 0.5); // 金属の響き
+  tone(N('A3'), t, 0.12, 'sine', 0.9); // ドスッと重み
+}
+
+// 店長がダメージを受けたとき「いたっ！」
+export function playPlayerHurtSfx() {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.005;
+  noise(t, 0.08, 0.7, 400);
+  glide(520, 150, t, 0.28, 'sawtooth', 0.55); // 下がっていくやられ声
+  tone(N('D2'), t, 0.2, 'sine', 1);
 }
 
 export function stopBgm() {

@@ -311,6 +311,11 @@ function updateCustomer(state, c, dt) {
       // 店員が向かっている間は待ち時間の減りをゆっくりにする
       const slow = c.claimedBy || state.orders.some((o) => o.customerId === c.id && o.status !== 'queued') ? 0.5 : 1;
       c.patience -= dt * slow;
+      // クレーマーはゲージが半分を切ると怒りだす
+      if (c.complainer && !c.enraged && c.patience > 0 && c.patience <= c.maxPatience / 2) {
+        c.enraged = true;
+        state.events.push({ type: 'rage', x: c.x, y: c.y, text: 'プンプン！' });
+      }
       if (c.patience <= 0) leaveAngry(state, c);
       break;
     }

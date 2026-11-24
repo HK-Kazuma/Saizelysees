@@ -1037,6 +1037,15 @@ export class Renderer {
     }
     // 作業中は少し揺れる
     if (ent.phase === 'act' && ent.kind === 'worker') y += Math.sin(time * 18) > 0 ? -1 : 0;
+    // 怒り爆発中のクレーマー：プルプル震えて、ぴょんと跳ねる＋頭に怒りマーク
+    if (ent.kind === 'customer' && ent.enraged && (ent.state === 'calling' || ent.state === 'waiting')) {
+      x += Math.sin(time * 50) > 0 ? 1 : -1;
+      y -= Math.max(0, Math.sin(time * 14)) > 0.6 ? 2 : 0;
+      const hx = x + (ent.faceLeft ? 1 : 8), hy = y - 1;
+      g.fillStyle = Math.sin(time * 16) > 0 ? '#e0402a' : '#ff8a6a';
+      g.fillRect(hx, hy + 1, 1, 1); g.fillRect(hx + 1, hy, 1, 3); g.fillRect(hx + 2, hy + 1, 1, 1);
+      g.fillRect(hx + 4, hy + 1, 1, 1); g.fillRect(hx + 3, hy, 1, 3); g.fillRect(hx + 2, hy + 2, 3, 1);
+    }
     g.drawImage(spr, x, y);
     if (ent.hasDrink && !ent.sitting && ent.kind === 'customer') this.drawCup(g, x + (ent.faceLeft ? -2 : 9), y + 12);
     const stack = Math.min(Math.max(ent.carryCount || 1, 1), 3); // まとめて運ぶときは重ねて持つ（最大3段で表示）
