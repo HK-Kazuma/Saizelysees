@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import titleUrl from '../assets/title.png';
+import { playStartSfx } from '../audio/bgm.js';
 
 // 指さしの手（人差し指が上向きのドット絵。外周を自動で縁取りする）
 const HAND = [
@@ -52,6 +53,7 @@ export default function TitleScreen({ onStart }) {
   const start = () => {
     if (leaving || help) return;
     setLeaving(true);
+    playStartSfx();
     setTimeout(onStart, 380);
   };
 

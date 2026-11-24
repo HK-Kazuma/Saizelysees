@@ -18,7 +18,7 @@ import AudioSettings from './components/AudioSettings.jsx';
 import RotateHint from './components/RotateHint.jsx';
 import TitleScreen from './components/TitleScreen.jsx';
 import InstallGuide, { installGuidePlatform } from './components/InstallGuide.jsx';
-import { playBgm } from './audio/bgm.js';
+import { playBgm, playClickSfx } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
 
 export default function App() {
@@ -53,6 +53,13 @@ export default function App() {
       };
     }
     playBgm('game');
+    // ゲーム中は、どのボタンを押しても効果音
+    const onClick = (e) => {
+      const b = e.target.closest?.('button, [role="button"]');
+      if (b && !b.disabled) playClickSfx();
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
   }, [started]);
 
   const toast = useCallback((text, kind = 'info') => {

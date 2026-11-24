@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { getVolume, isMuted, setMuted, setVolume } from '../audio/bgm.js';
+import { getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
 
 export default function AudioSettings({ onClose }) {
   const [muted, setMutedState] = useState(isMuted());
+  const [clickOn, setClickOn] = useState(isClickSfxOn());
   const [vol, setVol] = useState(Math.round(getVolume() * 100));
 
   return (
@@ -17,6 +18,12 @@ export default function AudioSettings({ onClose }) {
             <span>BGM</span>
             <button className={`hud-btn ${muted ? '' : 'primary'}`} onClick={() => { setMuted(!muted); setMutedState(!muted); }}>
               {muted ? 'OFF' : 'ON'}
+            </button>
+          </div>
+          <div className="audio-row">
+            <span>ボタン音</span>
+            <button className={`hud-btn ${clickOn ? 'primary' : ''}`} onClick={() => { setClickSfxOn(!clickOn); setClickOn(!clickOn); }}>
+              {clickOn ? 'ON' : 'OFF'}
             </button>
           </div>
           <div className="audio-row">
