@@ -11,6 +11,7 @@ import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
 import { makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
+import { hallPrefOf } from '../data/staffTasks.js';
 
 const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
 const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーである確率
@@ -639,8 +640,8 @@ function chooseAutoTask(state, w) {
     o.claimedBy = w.id;
     return { type: 'cook', orderId: o.id, step: 'station' };
   }
-  // ホール：従業員画面で決めた優先順に、オンになっている業務から最初に見つかったものを取る
-  for (const t of state.hallTasks) {
+  // ホール：その人ごとに従業員画面で決めた優先順に、オンになっている業務から最初に見つかったものを取る
+  for (const t of hallPrefOf(state, w.index)) {
     if (!t.on) continue;
     const task = findHallTask(state, w, t.id);
     if (task) return task;

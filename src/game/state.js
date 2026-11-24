@@ -2,7 +2,7 @@
 import { RECIPES } from '../data/recipes.js';
 import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from '../data/shop.js';
 import { buildLayout } from './layout.js';
-import { defaultHallTasks, normalizeHallTasks } from '../data/staffTasks.js';
+import { normalizeHallTasks } from '../data/staffTasks.js';
 
 const SAVE_KEY = 'saizelysees-save-v1';
 export const MAX_LEVEL = 30;
@@ -118,7 +118,7 @@ export function createInitialState() {
     eqBusy: {},
     drinkStock: 0, // ドリンクバーに残っているドリンクの数（0で切れ）
     drinkClaim: null, // 交換に向かっている店員
-    hallTasks: defaultHallTasks(), // ホールスタッフの業務の優先順（従業員画面で変更）
+    hallPrefs: [], // ホールスタッフ1人ずつの業務の優先順 [index] = [{ id, on }]（従業員画面で変更）
     paused: false, // メニュー表示中は true（時間が止まる）
     dirty: {}, // 食器が残っている席 { seatId: { recipeId, claimedBy } }
     nextId: 1,
@@ -129,7 +129,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['day', 'clock', 'daily', 'history', 'drinkStock', 'hallTasks', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'daily', 'history', 'drinkStock', 'hallPrefs', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {
@@ -151,7 +151,11 @@ export function loadGame() {
         if (typeof data[k] === 'object' && !Array.isArray(data[k])) state[k] = { ...state[k], ...data[k] };
         else state[k] = data[k];
       }
-      state.hallTasks = normalizeHallTasks(state.hallTasks);
+      // 以前の「全員共通」の設定は、いま雇っている全員に引き継ぐ
+      if (data.hallPrefs === undefined && data.hallTasks) {
+        state.hallPrefs = Array.from({ length: state.staff.hall }, () => normalizeHallTasks(data.hallTasks));
+      }
+      state.hallPrefs = Array.from(state.hallPrefs || [], (list) => normalizeHallTasks(list));
       state.layout = buildLayout(state);
       // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
       if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);

@@ -1,5 +1,5 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
-import { defaultHallTasks } from '../data/staffTasks.js';
+import { defaultHallTasks, hallPrefOf } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
 import { createInitialState, clearSave, emptyDaily, drinkCap } from './state.js';
@@ -47,22 +47,29 @@ export function applyAction(state, action) {
       return okMsg();
     }
 
-    // ── 従業員の設定（ホールスタッフの業務の優先順） ──
+    // ── 従業員の設定（ホールスタッフ1人ずつの業務の優先順。action.staff は雇った順の番号） ──
     case 'MOVE_HALL_TASK': {
-      const i = state.hallTasks.findIndex((t) => t.id === action.id);
+      const list = hallPrefOf(state, action.staff);
+      const i = list.findIndex((t) => t.id === action.id);
       const j = i + (action.dir < 0 ? -1 : 1);
-      if (i < 0 || j < 0 || j >= state.hallTasks.length) return okMsg();
-      [state.hallTasks[i], state.hallTasks[j]] = [state.hallTasks[j], state.hallTasks[i]];
+      if (i < 0 || j < 0 || j >= list.length) return okMsg();
+      [list[i], list[j]] = [list[j], list[i]];
       return okMsg();
     }
     case 'TOGGLE_HALL_TASK': {
-      const t = state.hallTasks.find((x) => x.id === action.id);
+      const t = hallPrefOf(state, action.staff).find((x) => x.id === action.id);
       if (t) t.on = !t.on;
       return okMsg();
     }
     case 'RESET_HALL_TASKS':
-      state.hallTasks = defaultHallTasks();
+      state.hallPrefs[action.staff] = defaultHallTasks();
       return okMsg();
+    case 'COPY_HALL_TASKS': {
+      // この人の設定を、ホールスタッフ全員にコピーする
+      const src = hallPrefOf(state, action.staff);
+      for (let i = 0; i < state.staff.hall; i++) state.hallPrefs[i] = src.map((t) => ({ ...t }));
+      return okMsg();
+    }
     case 'SWAP_DRINK': {
       if (!state.equipment.drink.owned || state.drinkStock > 0 || state.drinkClaim) return fail('交換できません');
       const m = manager(state);

@@ -9,6 +9,9 @@ export const HALL_TASKS = [
 export const HALL_TASK_MAP = Object.fromEntries(HALL_TASKS.map((t) => [t.id, t]));
 export const defaultHallTasks = () => HALL_TASKS.map((t) => ({ id: t.id, on: true }));
 
+// ホールスタッフ1人ぶんの設定（index は雇った順の番号）。まだ無ければ初期設定を作る
+export const hallPrefOf = (state, index) => (state.hallPrefs[index] ||= defaultHallTasks());
+
 // セーブデータや古いデータから、全業務が1回ずつ入った正しい並びに直す
 export function normalizeHallTasks(list) {
   const out = [];
