@@ -3,6 +3,7 @@ import { clockText } from '../game/state.js';
 import RecipeBook from './RecipeBook.jsx';
 import ShopPanel from './ShopPanel.jsx';
 import StoreInfo from './StoreInfo.jsx';
+import StaffSettings from './StaffSettings.jsx';
 
 // ドット絵風のアイコン（SVG）
 export function PcIcon({ size = 26 }) {
@@ -55,10 +56,22 @@ const ChartIcon = () => (
   </svg>
 );
 
+const StaffIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+    <rect x="5" y="1" width="6" height="6" fill="#2b1a14" />
+    <rect x="6" y="2" width="4" height="4" fill="#f0c8a0" />
+    <rect x="6" y="1" width="4" height="2" fill="#5a3a22" />
+    <rect x="3" y="8" width="10" height="7" fill="#2b1a14" />
+    <rect x="4" y="9" width="8" height="5" fill="#fbf7ee" />
+    <rect x="7" y="9" width="2" height="5" fill="#b3202a" />
+  </svg>
+);
+
 const APPS = [
   { id: 'recipes', name: 'レシピ', Icon: BookIcon },
   { id: 'shop', name: 'ショップ', Icon: ShopIcon },
   { id: 'info', name: '店舗情報', Icon: ChartIcon },
+  { id: 'staff', name: '従業員', Icon: StaffIcon },
 ];
 
 // パソコン画面風のメニュー。開いている間はゲーム内の時間が止まる
@@ -99,6 +112,7 @@ export default function PcMenu({ state, act, onClose }) {
       </div>
       {app === 'recipes' && <RecipeBook state={state} onClose={() => setApp(null)} />}
       {app === 'shop' && <ShopPanel state={state} act={act} onClose={() => setApp(null)} />}
+      {app === 'staff' && <StaffSettings state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'info' && <StoreInfo state={state} onClose={() => setApp(null)} />}
     </>
   );

@@ -827,3 +827,20 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .si-row { display: grid; grid-template-columns: 1fr 100px 110px; gap: 6px; padding: 6px 10px; font-size: 13px; border-bottom: 2px dashed var(--cream-d); }
 .si-row span:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; }
 .si-row.head { font-size: 11px; color: #6a5a4a; background: var(--cream-d); }
+
+/* 従業員の設定 */
+.modal.staffset { width: min(560px, 96vw); height: min(440px, 94%); }
+.st-title { font-size: 14px; font-weight: bold; }
+.st-help { font-size: 11px; color: #6a5a4a; }
+.st-list { display: flex; flex-direction: column; gap: 6px; }
+.st-row { display: flex; align-items: center; gap: 6px; background: var(--white); box-shadow: 0 0 0 2px var(--ink); padding: 6px 8px; margin: 2px; }
+.st-row.off { opacity: 0.55; }
+.st-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: var(--green); color: var(--white); font-weight: bold; font-size: 13px; flex: 0 0 auto; }
+.st-row.off .st-rank { background: #8a8a92; }
+.st-info { flex: 1; min-width: 0; }
+.st-name { font-size: 14px; font-weight: bold; }
+.st-desc { font-size: 11px; color: #6a5a4a; }
+.st-arrow { padding: 4px 9px; min-height: 30px; }
+.st-arrow:disabled { opacity: 0.3; }
+.st-toggle { min-width: 52px; text-align: center; background: #d8d0c0; }
+.st-foot { display: flex; justify-content: flex-end; }

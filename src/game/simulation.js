@@ -639,36 +639,54 @@ function chooseAutoTask(state, w) {
     o.claimedBy = w.id;
     return { type: 'cook', orderId: o.id, step: 'station' };
   }
-  // ホール：会計 → 配膳 → 注文取り の優先順
-  // 無人レジがあるときは会計をお客さんに任せる
-  const payer = state.equipment.selfreg?.owned ? null : state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
-  if (payer) {
-    payer.claimedBy = w.id;
-    return { type: 'checkout', customerId: payer.id };
-  }
-  const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip);
-  if (ready) {
-    ready.claimedBy = w.id;
-    return { type: 'serve', orderId: ready.id, step: 'pickup' };
-  }
-  // ドリンクバーが切れていたら交換（お客さんが待っている）
-  const needSwap = state.equipment.drink.owned && state.drinkStock <= 0 && !state.drinkClaim;
-  const dirtyId = Object.keys(state.dirty).find((id) => !state.dirty[id].claimedBy && !state.seatOcc[id] && state.layout.seatMap[id]);
-  const caller = state.equipment.qrorder?.owned ? null : state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
-  if (caller) {
-    caller.claimedBy = w.id;
-    return { type: 'take', customerId: caller.id };
-  }
-  if (needSwap) {
-    state.drinkClaim = w.id;
-    return { type: 'drink' };
-  }
-  // 手が空いていれば、食べ終わった席の食器を片付ける
-  if (dirtyId) {
-    state.dirty[dirtyId].claimedBy = w.id;
-    return { type: 'bus', seatId: dirtyId, step: 'pickup' };
+  // ホール：従業員画面で決めた優先順に、オンになっている業務から最初に見つかったものを取る
+  for (const t of state.hallTasks) {
+    if (!t.on) continue;
+    const task = findHallTask(state, w, t.id);
+    if (task) return task;
   }
   return null;
+}
+
+// ホールスタッフの業務1種類ぶん。仕事があれば予約(claim)して task を返す
+function findHallTask(state, w, id) {
+  switch (id) {
+    case 'checkout': {
+      // 無人レジがあるときは会計をお客さんに任せる
+      if (state.equipment.selfreg?.owned) return null;
+      const payer = state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
+      if (!payer) return null;
+      payer.claimedBy = w.id;
+      return { type: 'checkout', customerId: payer.id };
+    }
+    case 'serve': {
+      const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip);
+      if (!ready) return null;
+      ready.claimedBy = w.id;
+      return { type: 'serve', orderId: ready.id, step: 'pickup' };
+    }
+    case 'take': {
+      if (state.equipment.qrorder?.owned) return null;
+      const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
+      if (!caller) return null;
+      caller.claimedBy = w.id;
+      return { type: 'take', customerId: caller.id };
+    }
+    case 'drink': {
+      // ドリンクバーが切れていたら交換（お客さんが待っている）
+      if (!state.equipment.drink.owned || state.drinkStock > 0 || state.drinkClaim) return null;
+      state.drinkClaim = w.id;
+      return { type: 'drink' };
+    }
+    case 'bus': {
+      const seatId = Object.keys(state.dirty).find((sid) => !state.dirty[sid].claimedBy && !state.seatOcc[sid] && state.layout.seatMap[sid]);
+      if (!seatId) return null;
+      state.dirty[seatId].claimedBy = w.id;
+      return { type: 'bus', seatId, step: 'pickup' };
+    }
+    default:
+      return null;
+  }
 }
 
 function idleSpot(state, w) {
