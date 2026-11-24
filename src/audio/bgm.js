@@ -37,12 +37,35 @@ const TRACKS = {
 };
 
 // ジングルベル（クリスマス仕様）：ゆっくり・やわらかい音色
-// 1小節 = 8ステップ（8分音符×8）。メロディは16小節、伴奏は小節ごとのコードから生成する。
+// 1小節 = 8ステップ（8分音符×8）。メロディは32小節（Aメロ16小節 + サビ16小節）、
+// 伴奏は小節ごとのコードから生成する。
 const JB = (() => {
   const E = 'E5', F = 'F5', G = 'G5', C = 'C5', D = 'D5';
+  const g = 'G4', a = 'A4', b = 'B4'; // 低めの音（Aメロ用）
   const x = null;
   const jingle = [E, x, E, x, E, x, x, x]; // ジングルベル（E E E-）
+  // Aメロ「Dashing through the snow ...」
+  const dashing = [g, x, E, x, D, x, C, x]; // Dashing through the snow
+  const verse = [
+    dashing,
+    [g, x, x, x, x, x, x, x],
+    [g, g, E, x, D, x, C, x], // in a one-horse open sleigh
+    [a, x, x, x, x, x, x, x],
+    [a, a, F, x, E, x, D, x], // o'er the fields we go
+    [b, x, x, x, x, x, x, x],
+    [G, x, G, x, F, x, D, x], // laughing all the way
+    [E, x, C, x, x, x, x, x],
+    dashing, // Bells on bobtail ring
+    [g, x, x, x, x, x, x, x],
+    [g, g, E, x, D, x, C, x], // making spirits bright
+    [a, x, x, x, x, x, x, x],
+    [a, a, F, x, E, x, D, x], // what fun it is to ride and sing
+    [D, x, G, x, x, x, x, x],
+    [G, x, G, x, F, x, D, x], // a sleighing song tonight
+    [C, x, x, x, x, x, x, x],
+  ];
   const bars = [
+    ...verse,
     jingle,
     jingle,
     [E, x, G, x, C, x, x, D],
@@ -66,7 +89,12 @@ const JB = (() => {
     F: { bass: ['F3', 'C4'], pad: ['C4', 'F4', 'A4'] },
     G: { bass: ['G3', 'D4'], pad: ['B3', 'D4', 'G4'] },
   };
-  const prog = ['C', 'C', 'C', 'C', 'F', 'C', 'C', 'G', 'C', 'C', 'C', 'C', 'F', 'C', 'G', 'C'];
+  const prog = [
+    // Aメロ
+    'C', 'C', 'C', 'F', 'F', 'G', 'G', 'C', 'C', 'C', 'C', 'F', 'F', 'G', 'G', 'C',
+    // サビ
+    'C', 'C', 'C', 'C', 'F', 'C', 'C', 'G', 'C', 'C', 'C', 'C', 'F', 'C', 'G', 'C',
+  ];
   const bass = [];
   const chords = [];
   prog.forEach((name) => {
@@ -80,7 +108,7 @@ const JB = (() => {
 })();
 
 TRACKS.jingle = {
-  bpm: 84,
+  bpm: 150,
   wave: 'triangle',
   bell: true, // 1オクターブ上の倍音を薄く重ねて、鈴のような温かみを出す
   ...JB,
