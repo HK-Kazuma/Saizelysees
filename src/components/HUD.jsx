@@ -47,8 +47,8 @@ export default function HUD({ state, act, onOpen }) {
       <button className={`hud-btn speed ${state.speed === 2 ? 'on' : ''}`} onClick={() => act({ type: 'SET_SPEED', speed: state.speed === 2 ? 1 : 2 })}>
         {state.speed === 2 ? '▶▶' : '▶'}
       </button>
-      <button className="hud-btn" onClick={() => onOpen('recipes')}>レシピ</button>
-      <button className="hud-btn primary" onClick={() => onOpen('shop')}>ショップ</button>
+      <button className="hud-btn text" onClick={() => onOpen('recipes')}>レシピ</button>
+      <button className="hud-btn text primary" onClick={() => onOpen('shop')}>ショップ</button>
     </header>
   );
 }

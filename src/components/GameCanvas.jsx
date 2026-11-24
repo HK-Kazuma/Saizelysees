@@ -56,14 +56,38 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
   // タップ＝お客さん/ポスターの操作、ドラッグ＝視点移動（スマホは指1本、PCは左クリックを押しながら）
   const drag = useRef(null);
 
+  // 2本指ピンチ：指の位置と、前回の指の間隔
+  const pointers = useRef(new Map());
+  const pinch = useRef(null);
+  const zoomBy = (factor, clientX, clientY) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    rendererRef.current.zoomAt(factor, clientX - rect.left, clientY - rect.top, store.state.layout);
+  };
+
   const onPointerDown = (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
-    if (drag.current) return; // 2本目の指は無視
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      // 2本目の指：ドラッグ/タップを打ち切ってピンチ開始
+      if (drag.current) drag.current.moved = true;
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y) };
+      return;
+    }
+    if (drag.current) return;
     drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
 
   const onPointerMove = (e) => {
+    if (pointers.current.has(e.pointerId)) pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch.current && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.current.dist > 0 && dist > 0) zoomBy(dist / pinch.current.dist, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      pinch.current.dist = dist;
+      return;
+    }
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
     if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
@@ -77,17 +101,31 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
     d.y = e.clientY;
   };
 
-  const endDrag = () => {
+  const endDrag = (e) => {
+    if (e?.pointerId != null) pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size > 0) return; // ピンチ後に残った指ではドラッグを再開しない
     drag.current = null;
     if (canvasRef.current) canvasRef.current.style.cursor = '';
   };
 
   const onPointerUp = (e) => {
     const d = drag.current;
-    if (!d || d.id !== e.pointerId) return;
-    endDrag();
+    if (!d || d.id !== e.pointerId) return endDrag(e);
+    endDrag(e);
     if (!d.moved) tap(e);
   };
+
+  // PCはホイールでズーム（上に回すと拡大）
+  useEffect(() => {
+    const cv = canvasRef.current;
+    const onWheel = (e) => {
+      e.preventDefault();
+      zoomBy(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY);
+    };
+    cv.addEventListener('wheel', onWheel, { passive: false });
+    return () => cv.removeEventListener('wheel', onWheel);
+  }, [store]);
 
   const tap = (e) => {
     const rect = canvasRef.current.getBoundingClientRect();

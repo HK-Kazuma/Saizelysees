@@ -33,6 +33,9 @@ const C = {
   gold: '#d8a838', goldD: '#9a7020',
 };
 
+const MIN_ZOOM = 0.6;
+const MAX_ZOOM = 3;
+
 export class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -42,6 +45,7 @@ export class Renderer {
     this.shopLight = 0; // お店の電気の明るさ(0〜1)。点灯・消灯はなめらかに切り替える
     this.nightCv = document.createElement('canvas');
     this.viewKey = '';
+    this.zoom = 1; // ユーザーのズーム倍率（基準の拡大率に掛ける）
     this.particles = [];
     this.poster = null;
     this.css = { w: 300, h: 200, dpr: 1 };
@@ -93,7 +97,7 @@ export class Renderer {
 
   // 拡大率は固定（店が拡張されても変えない）。収まりきらない分は指/マウスでドラッグして見る
   updateView(L) {
-    const key = `${this.css.w}x${this.css.h}@${this.css.dpr}`;
+    const key = `${this.css.w}x${this.css.h}@${this.css.dpr}x${this.zoom}`;
     if (key !== this.viewKey) {
       this.viewKey = key;
       const fit = STORE_SIZES[Math.min(FIT_SIZE_IDX, STORE_SIZES.length - 1)];
@@ -102,7 +106,7 @@ export class Renderer {
       const { w, h, dpr } = this.css;
       const s = Math.min((w * dpr) / bw, (h * dpr) / bh);
       // 整数倍だと余白が大きくなるので、スマホでは画面いっぱいに拡大する（高DPRなのでドットの不揃いは目立たない）
-      const k = s >= 4 ? Math.floor(s) : s;
+      const k = (s >= 4 ? Math.floor(s) : s) * this.zoom;
       this.W = Math.ceil((w * dpr) / k);
       this.H = Math.ceil((h * dpr) / k);
       this.canvas.width = this.W;
@@ -128,6 +132,20 @@ export class Renderer {
     const fit = (lo, hi, size, v) => (hi - lo <= size ? Math.round((size - (hi - lo)) / 2 - lo) : Math.round(Math.min(-lo, Math.max(size - hi, v))));
     view.ox = fit(b.minX, b.maxX, this.W, view.ox);
     view.oy = fit(b.minY, b.maxY, this.H, view.oy);
+  }
+
+  // 画面(CSS)座標 (cx, cy) を中心にズーム倍率を factor 倍する。その点の下の景色は動かさない
+  zoomAt(factor, cx, cy, L) {
+    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, this.zoom * factor));
+    if (z === this.zoom) return;
+    const wx = (cx * view.dpr) / view.k - view.ox;
+    const wy = (cy * view.dpr) / view.k - view.oy;
+    this.zoom = z;
+    this.viewKey = '';
+    this.updateView(L);
+    view.ox = Math.round((cx * view.dpr) / view.k - wx);
+    view.oy = Math.round((cy * view.dpr) / view.k - wy);
+    this.clampView();
   }
 
   // 内部ドット単位で視点を動かす

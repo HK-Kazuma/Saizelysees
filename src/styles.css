@@ -110,7 +110,10 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
   min-height: 32px;
   margin: 3px;
   transition: transform 0.08s;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
+.hud-btn.text { min-width: 72px; text-align: center; }
 .hud-btn:active { transform: translateY(2px); }
 .hud-btn.primary { background: var(--green); color: var(--white); }
 .hud-btn.speed.on { background: var(--gold); }
@@ -424,6 +427,23 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 @media (max-width: 760px) {
   .hud-chip.small { display: none; }
   .logo-sub { display: none; }
+}
+/* iPhoneの横画面など：ノッチ分の余白を取り、上部バーを詰めてボタンが縦書きにならないようにする */
+.hud { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+.hud > * { min-width: 0; }
+.logo { flex: 0 1 auto; }
+.logo-main { white-space: nowrap; }
+@media (max-width: 900px) {
+  .hud { gap: 3px; }
+  .logo-main { font-size: 14px; }
+  .hud-chip { margin: 2px; padding: 2px 5px; font-size: 12px; gap: 3px; }
+  .hud-chip.clock .day { font-size: 10px; }
+  .hud-chip.clock .time { min-width: 0; }
+  .hud-chip.coin { min-width: 0; }
+  .xpbar { width: 28px; }
+  .hud-btn { margin: 2px; padding: 4px 6px; }
+  .hud-btn.text { min-width: 58px; }
+  .hud-btn.gear { padding: 2px 6px; }
 }
 
 @keyframes pop-in { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
