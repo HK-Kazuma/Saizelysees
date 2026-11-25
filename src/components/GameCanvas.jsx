@@ -186,7 +186,7 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
     if (c.complainer) {
       if (c.state === 'calling' && !c.claimedBy) handlers.current.onFight(c.id);
     } else if (c.state === 'calling' && !c.claimedBy) doAct({ type: 'TAKE_ORDER', customerId: c.id });
-    else if ((c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy) doAct({ type: 'CHECKOUT', customerId: c.id });
+    else if ((c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy && !store.state.equipment.selfreg?.owned) doAct({ type: 'CHECKOUT', customerId: c.id });
     else if (c.state === 'waiting') {
       const o = store.state.orders.find((x) => x.customerId === c.id);
       if (!o) return;
