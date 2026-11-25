@@ -1,0 +1,9 @@
+.dev-fab { position: fixed; left: 6px; bottom: calc(6px + env(safe-area-inset-bottom)); z-index: 200; width: 34px; height: 34px; font-size: 18px; opacity: 0.6; border-radius: 50%; padding: 0; }
+.dev-panel { position: fixed; left: 6px; bottom: 6px; z-index: 201; width: min(420px, 94vw); max-height: 86vh; overflow-y: auto; background: #1d1f27; color: #e8e8ee; border: 2px solid #6c7bd8; border-radius: 8px; padding: 8px 10px 10px; font-size: 12px; }
+.dev-head { display: flex; align-items: center; gap: 8px; }
+.dev-head span { flex: 1; opacity: 0.75; }
+.dev-panel h4 { margin: 10px 0 4px; font-size: 11px; color: #9aa4e8; }
+.dev-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.dev-panel button, .dev-panel select { font-size: 12px; padding: 4px 8px; min-height: 28px; background: #2d3040; color: #e8e8ee; border: 1px solid #4b5070; border-radius: 4px; }
+.dev-panel button:active { background: #44497a; }
+.dev-panel button.on { background: #2f6b3a; border-color: #4a9a52; }

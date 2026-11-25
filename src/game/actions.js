@@ -3,6 +3,7 @@ import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
 import { createInitialState, clearSave, emptyDaily, drinkCap } from './state.js';
+import { applyDevAction } from '../dev/presets.js';
 
 const fail = (msg) => ({ ok: false, msg });
 const okMsg = (msg) => ({ ok: true, msg });
@@ -19,6 +20,8 @@ function spend(state, price, cat) {
 const manager = (state) => state.workers.find((w) => w.role === 'manager');
 
 export function applyAction(state, action) {
+  // 開発者用の操作（本番ビルドでは DEV が false になり、ここも presets.js も取り除かれる）
+  if (action.type.startsWith('DEV_')) return import.meta.env.DEV ? applyDevAction(state, action) : fail('unknown action');
   switch (action.type) {
     // ── 接客（店長に指示を出す。店長は順番に動く） ──
     case 'TAKE_ORDER': {

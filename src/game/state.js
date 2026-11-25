@@ -4,7 +4,8 @@ import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from 
 import { buildLayout } from './layout.js';
 import { normalizeHallTasks, normalizeSkills } from '../data/staffTasks.js';
 
-const SAVE_KEY = 'saizelysees-save-v1';
+// 開発サーバーでは別のキーに保存する（プリセットで本番のセーブを壊さないため）
+const SAVE_KEY = import.meta.env.DEV ? 'saizelysees-save-v1-dev' : 'saizelysees-save-v1';
 export const MAX_LEVEL = 30;
 
 // ゲーム内の時計（単位は「分」）。倍速は実時間2秒 = ゲーム内10分（1秒 = 5分）、等倍はその半分（1秒 = 2.5分）

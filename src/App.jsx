@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createGameStore, useGame } from './game/store.js';
 import { preloadIcons } from './render/sprites.js';
 import { loadImage, pixelate } from './render/pixelate.js';
@@ -20,6 +20,9 @@ import TitleScreen from './components/TitleScreen.jsx';
 import InstallGuide, { installGuidePlatform } from './components/InstallGuide.jsx';
 import { playBgm, playClickSfx } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
+
+// 開発者パネル。DEV 以外では null になり、動的 import ごと本番ビルドから消える
+const DevPanel = import.meta.env.DEV ? lazy(() => import('./dev/DevPanel.jsx')) : null;
 
 export default function App() {
   const store = useMemo(() => createGameStore(), []);
@@ -151,6 +154,7 @@ export default function App() {
           <div key={t.id} className={`toast toast-${t.kind}`}>{t.text}</div>
         ))}
       </div>
+      {DevPanel && <Suspense fallback={null}><DevPanel state={state} act={act} /></Suspense>}
       <RotateHint />
     </div>
   );

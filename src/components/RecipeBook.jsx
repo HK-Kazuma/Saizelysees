@@ -28,9 +28,10 @@ export default function RecipeBook({ state, onClose }) {
         <div className="recipe-list">
           {list.map((r) => {
             const avail = isRecipeAvailable(state, r);
-            const lvLocked = r.lv > state.level;
+            const lvShort = r.lv > state.level;
+            const lvLocked = lvShort && !state.devRevealAll;
             const missing = r.req.filter((id) => !state.equipment[id]?.owned).map((id) => EQUIP_MAP[id].name);
-            const status = avail ? '販売中' : lvLocked ? `Lv${r.lv}で解放` : `${missing.join('・')}が必要`;
+            const status = avail ? '販売中' : lvShort ? `Lv${r.lv}で解放` : `${missing.join('・')}が必要`;
             const open = openId === r.id;
             return (
               <div key={r.id} className={`recipe ${avail ? '' : 'locked'} ${open ? 'open' : ''}`} onClick={() => setOpenId(open ? null : r.id)}>
