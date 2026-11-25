@@ -1,6 +1,7 @@
 import React from 'react';
 import { RECIPE_MAP } from '../data/recipes.js';
 import DishIcon from './DishIcon.jsx';
+import { fmtCoins } from '../game/state.js';
 
 // 23:00に出る、その日のレポート。閉じるまでゲーム内の時間は止まる
 // 最終日の本部評価（ランク・達成率・次の店の開店資金）
@@ -40,7 +41,7 @@ export default function ReportPanel({ report, onClose, onNext }) {
           <div><small>売上</small><b>¥{report.sales.toLocaleString()}</b></div>
           <div><small>販売数</small><b>{total}品</b></div>
           <div><small>怒って帰った人</small><b>{report.angry}人</b></div>
-          <div><small>所持金</small><b>¥{report.coins.toLocaleString()}</b></div>
+          <div className={report.coins < 0 ? 'deficit' : ''}><small>所持金{report.coins < 0 && '（赤字）'}</small><b>{fmtCoins(report.coins)}</b></div>
         </div>
         {report.staffMin > 0 && (
           <div className="stage-line">

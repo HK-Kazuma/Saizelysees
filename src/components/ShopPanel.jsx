@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { tableSlots } from '../game/layout.js';
 import { EQUIPMENT, EQUIP_MAP, STAFF, DECOR, STORE_SIZES, TABLE_PRICE, staffLimit } from '../data/shop.js';
 import { RECIPES } from '../data/recipes.js';
-import { drinkCap } from '../game/state.js';
+import { drinkCap, fmtCoins } from '../game/state.js';
 
 const SELFREG = EQUIP_MAP.selfreg;
 const QRORDER = EQUIP_MAP.qrorder;
@@ -47,7 +47,7 @@ export default function ShopPanel({ state, act, onClose }) {
       <div className="modal shop" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <span className="modal-title">ショップ</span>
-          <span className="modal-coins">¥{state.coins.toLocaleString()}</span>
+          <span className={`modal-coins ${state.coins < 0 ? 'deficit' : ''}`}>{fmtCoins(state.coins)}</span>
           <button className="close-btn" onClick={onClose}>とじる</button>
         </div>
         <div className="tabs">

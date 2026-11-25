@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, MANAGER_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
 import { SPEED } from '../game/simulation.js';
+import { fmtCoins } from '../game/state.js';
 import { STAFF, staffLimit } from '../data/shop.js';
 import { getCharSprite } from '../render/sprites.js';
 import { playSwooshSfx } from '../audio/bgm.js';
@@ -112,7 +113,7 @@ export default function StaffSettings({ state, act, onClose }) {
         <div className="modal-head">
           <span className="modal-title">従業員</span>
           <span className="modal-coins">
-            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}　¥{state.coins.toLocaleString()}
+            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}　{fmtCoins(state.coins)}
           </span>
           <button className="close-btn" onClick={onClose}>とじる</button>
         </div>

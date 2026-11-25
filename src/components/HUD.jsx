@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { xpToNext, appeal, clockText, isNight } from '../game/state.js';
+import { xpToNext, appeal, clockText, isNight, fmtCoins } from '../game/state.js';
 import { STORE_SIZES } from '../data/shop.js';
 import { STORE_MAP } from '../data/stores.js';
 
@@ -36,8 +36,8 @@ export default function HUD({ state, act, onOpen }) {
         <span className="time">{clockText(state.clock)}</span>
         {isNight(state.clock) && <MoonIcon />}
       </div>
-      <div className={`hud-chip coin ${bump ? 'bump' : ''}`}>
-        <span className="coin-icon" />¥{state.coins.toLocaleString()}
+      <div className={`hud-chip coin ${bump ? 'bump' : ''} ${state.coins < 0 ? 'deficit' : ''}`}>
+        <span className="coin-icon" />{fmtCoins(state.coins)}{state.coins < 0 && <span className="deficit-tag">赤字</span>}
       </div>
       <div className="hud-chip level">
         <span className="lv">Lv{state.level}</span>

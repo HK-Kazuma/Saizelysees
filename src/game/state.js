@@ -44,6 +44,9 @@ export const clockText = (clock) => {
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
 
+// 所持金の表示。マイナス（赤字）のときは -¥1,234
+export const fmtCoins = (n) => `${n < 0 ? '-' : ''}¥${Math.abs(Math.round(n)).toLocaleString()}`;
+
 // 次のレベルまでに必要な経験値
 export const xpToNext = (level) => Math.round(60 * Math.pow(level, 1.55));
 
@@ -163,6 +166,7 @@ export function createInitialState() {
     report: null, // 閉店後のレポート（表示中は時間が止まる）
     historyMonthly: [], // 古い日ごとの記録を30日ぶんずつにまとめたもの { block, days, sales, served, angry, expense }
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
+    wageAcc: 0, // 今日ぶんの人件費（閉店後のレポートが出るときにまとめて払う）
     shift: defaultShift(), // 時間帯ごとの出勤人数 { kitchen: [12コマ], hall: [12コマ] }
     // ここから「会社全体」（店をまたいで引き継ぐ）
     storeRecords: {}, // 出店した店の成績 { 店ID: { rank, rate, sales, angry, days } }
@@ -185,7 +189,6 @@ export function createInitialState() {
     seatOcc: {},
     eqBusy: {},
     drinkStock: 0, // ドリンクバーに残っているドリンクの数（0で切れ）
-    wageAcc: 0, // 人件費の端数（1円未満）
     clockDelta: 0, // このフレームで進んだゲーム内の分（早送り中は0）
     drinkClaim: null, // 交換に向かっている店員
     hallSkills: [], // ホールスタッフ1人ずつの能力レベル [index] = { take, serve, bus, checkout, drink }
@@ -201,7 +204,7 @@ export function createInitialState() {
 }
 
 const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords'];
-const STORE_KEYS = ['stage', 'shift', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const STORE_KEYS = ['stage', 'shift', 'wageAcc', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
 // 日ごとの記録は直近 HISTORY_KEEP 日だけ残し、それより古いものは30日ぶんずつにまとめる

@@ -994,6 +994,8 @@ function stepClock(state, dt) {
     state.events.push({ type: 'clock', text: '閉店です。おつかれさま！' });
     sendHomeCustomers(state);
   } else if (crossed(FAST_START_MIN)) {
+    payWages(state);
+    state.clockDelta = 0; // 支払ったあとは、今日ぶんの人件費を増やさない
     state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
   }
 }
@@ -1015,13 +1017,17 @@ function trackStaff(state, dm) {
     wu[0] += dm;
     wu[1] += busy;
   }
-  const whole = Math.floor(state.wageAcc);
-  if (whole > 0) {
-    state.wageAcc -= whole;
-    state.coins -= whole; // 払えないときは所持金がマイナス（赤字）になる
-    const ex = state.daily.expense;
-    ex.labor = (ex.labor || 0) + whole;
-  }
+}
+
+// 今日ぶんの人件費を払う（閉店後のレポートが出るのと同時）。払えないときは所持金がマイナス（赤字）になる
+function payWages(state) {
+  const whole = Math.round(state.wageAcc);
+  state.wageAcc = 0;
+  if (whole <= 0) return;
+  state.coins -= whole;
+  const ex = state.daily.expense;
+  ex.labor = (ex.labor || 0) + whole;
+  state.events.push({ type: 'penalty', text: `人件費 ¥${whole.toLocaleString()} を支払いました${state.coins < 0 ? '（赤字です！）' : ''}` });
 }
 
 // ───────── メインの1フレーム ─────────

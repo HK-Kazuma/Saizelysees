@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { clockText, shiftOn } from '../game/state.js';
+import { clockText, shiftOn, fmtCoins } from '../game/state.js';
 import RecipeBook from './RecipeBook.jsx';
 import ShopPanel from './ShopPanel.jsx';
 import StoreInfo from './StoreInfo.jsx';
@@ -119,7 +119,7 @@ export default function PcMenu({ state, act, onClose }) {
             </div>
             <div className="pc-taskbar">
               <span className="pc-start">メニュー</span>
-              <span className="pc-tray">{state.day}日目 {clockText(state.clock)}　¥{state.coins.toLocaleString()}</span>
+              <span className="pc-tray">{state.day}日目 {clockText(state.clock)}　{fmtCoins(state.coins)}</span>
             </div>
           </div>
           <div className="pc-neck" />
