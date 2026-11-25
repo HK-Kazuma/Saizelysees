@@ -2,6 +2,7 @@
 // 文字1つ = 1ピクセル。パレットの文字を差し替えて髪色や服の色を変える。
 import { makeSprite, flipped } from './pixel.js';
 import { RECIPES } from '../data/recipes.js';
+import { TARAKO_PASTA_HI, MEAT_PASTA_HI } from './dishArt.js';
 
 const OUT = '#2b1a14';
 
@@ -142,6 +143,10 @@ export function getCharSprite(look, { back = false, left = false, frame = 0, sit
 
 // ───────── 料理アイコン（12×9） ─────────
 const SHAPES = {
+  // たらこのパスタ：木の器・黄色い麺・ピンクのたらこ・刻みのり山盛り
+  tarako: ['............', '.....nnn....', '....nNnnN...', '..yynnNnyy..', '.yyqyyyqyyy.', '.yqyyYqyyYy.', 'eeyYyyyYyyee', '.efeeeeeeee.', '..EEEEEEEE..'],
+  // ミートパスタ：木の器・赤橙の麺とソース・中央に粉チーズ
+  meat_pasta: ['............', '....uuvu....', '..uuvjjjuu..', '.uvujjkjluu.', '.uuvjkjuuvu.', '.vuuvuuvuuv.', 'eeuvuuvuuvee', '.efeeeeeeee.', '..EEEEEEEE..'],
   pasta: ['............', '....yyyy....', '..yyaaaayy..', '.yaababaay..', '.yaaaaaaby..', 'wwyyaaaayyww', 'wwwyyyyyywww', '.wwwwwwwwww.', '..WWWWWWWW..'],
   penne: ['............', '....ybyy....', '..yybaaayy..', '.yaayaayaay.', '.yayaabaayy.', 'wwyyaayayyww', 'wwwyyyyyywww', '.wwwwwwwwww.', '..WWWWWWWW..'],
   plate: ['............', '............', '....abab....', '..aabaabaa..', '.abaabbaaba.', 'wwaaaaaaaaww', 'wwwaaaaaawww', '.wwwwwwwwww.', '..WWWWWWWW..'],
@@ -175,17 +180,40 @@ export function getDishSprite(recipe) {
     c: '#fbe9a0',
     i: '#3a3434',
     p: '#f2cf6a',
+    Y: '#e0b45a',
+    q: '#f08a92',
+    n: '#1c2822', N: '#34503e',
+    e: '#b9743a', E: '#7a4a24', f: '#d89a5a',
+    u: '#f0a84c', v: '#c8641f', j: '#fffbea', k: '#e8dcae', l: '#4f8032',
   });
   iconCache.set(recipe.id, cv);
   return cv;
 }
 
+// 高精細版（UI用）。用意がある料理だけ。無ければ null
+const HI_ART = { tarako: TARAKO_PASTA_HI, meat_pasta: MEAT_PASTA_HI };
+export function hasHiRes(recipe) {
+  return !!HI_ART[recipe.icon.shape];
+}
+const hiCache = new Map();
+function getDishHiSprite(recipe) {
+  let cv = hiCache.get(recipe.id);
+  if (!cv) {
+    const art = HI_ART[recipe.icon.shape];
+    cv = makeSprite(art.rows, art.palette);
+    hiCache.set(recipe.id, cv);
+  }
+  return cv;
+}
+
 // UI用に拡大したアイコンの dataURL
 const urlCache = new Map();
-export function dishIconURL(recipe, scale = 4) {
-  const key = recipe.id + scale;
+export function dishIconURL(recipe, scale = 4, wantHi = false) {
+  const hi = wantHi && hasHiRes(recipe);
+  if (hi) scale = 2;
+  const key = `${recipe.id}${scale}${hi ? 'hi' : ''}`;
   if (urlCache.has(key)) return urlCache.get(key);
-  const src = getDishSprite(recipe);
+  const src = hi ? getDishHiSprite(recipe) : getDishSprite(recipe);
   const cv = document.createElement('canvas');
   cv.width = src.width * scale;
   cv.height = src.height * scale;

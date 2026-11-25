@@ -35,7 +35,7 @@ export default function RecipeBook({ state, onClose }) {
             return (
               <div key={r.id} className={`recipe ${avail ? '' : 'locked'} ${open ? 'open' : ''}`} onClick={() => setOpenId(open ? null : r.id)}>
                 <div className="recipe-row">
-                  <DishIcon recipe={r} size={40} dim={lvLocked} />
+                  <DishIcon recipe={r} size={40} dim={lvLocked} hires />
                   <div className="recipe-name">{lvLocked ? '？？？' : r.name}</div>
                   <div className="recipe-price">¥{r.price}</div>
                   <div className={`recipe-status ${avail ? 'ok' : ''}`}>{status}</div>

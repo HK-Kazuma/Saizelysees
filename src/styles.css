@@ -190,6 +190,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .task-emoji { font-size: 22px; line-height: 1; }
 .task-status { font-size: 11px; color: #7a6a5a; white-space: nowrap; }
 .dish-icon { image-rendering: pixelated; display: block; }
+.dish-icon.hires { image-rendering: auto; }
 .dish-icon.dim { filter: brightness(0) opacity(0.35); }
 
 /* ───────── モーダル共通 ───────── */

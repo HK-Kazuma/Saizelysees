@@ -36,7 +36,7 @@ export const RECIPES = [
   {
     id: 'meat_pasta', name: 'ミートパスタ', cat: 'pasta', price: 400, lv: 2, req: ['boiler', 'stove'], station: 'stove',
     ingredients: '麺、ミートソース 2杯、粉チーズ 1杯、パセリ',
-    icon: { shape: 'pasta', a: '#b8341f', b: '#f4e7c0' },
+    icon: { shape: 'meat_pasta', a: '#b8341f', b: '#f4e7c0' },
     steps: [boil(), add('ミートソース', '2杯'), heat(), toss(), plate(), top('粉チーズ', '1杯'), top('パセリ')],
   },
   {
@@ -60,7 +60,7 @@ export const RECIPES = [
   {
     id: 'tarako_pasta', name: 'たらこのパスタ', cat: 'pasta', price: 400, lv: 1, req: ['boiler'], station: 'boiler',
     ingredients: '麺、たらこソース 1パック、刻みのり',
-    icon: { shape: 'pasta', a: '#f2a48a', b: '#2f3a2a' },
+    icon: { shape: 'tarako', a: '#f2a48a', b: '#2f3a2a' },
     steps: [boil(), plate(), pour('たらこソース'), top('刻みのり', '', 'かける')],
   },
   {
