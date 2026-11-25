@@ -1,6 +1,6 @@
 // 季節テーマ。色・雪・夜の電飾・既定のBGMをここにまとめる（描画側はテーマを受け取るだけ）。
 // 新しい季節（桜・夏祭りなど）は THEMES に1つ足せばよい。
-import { setDefaultGameTrack } from '../audio/bgm.js';
+import { setBgmTheme } from '../audio/bgm.js';
 
 export const THEMES = {
   normal: {
@@ -67,7 +67,7 @@ export function setThemeMode(id) {
   if (!THEME_MODES.some((t) => t.id === id)) return;
   mode = id;
   try { localStorage.setItem(KEY, id); } catch { /* noop */ }
-  setDefaultGameTrack(getTheme().bgm);
+  setBgmTheme(getTheme().id, getTheme().bgm);
 }
 
-setDefaultGameTrack(getTheme().bgm);
+setBgmTheme(getTheme().id, getTheme().bgm);

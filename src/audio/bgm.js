@@ -130,8 +130,13 @@ TRACKS.jingle = {
 // ゲームプレイ中に流す曲の選択肢（設定画面から変更）
 export const GAME_TRACKS = [
   { id: 'game', label: '通常' },
-  { id: 'jingle', label: 'ジングルベル' },
+  { id: 'jingle', label: 'ジングルベル', theme: 'christmas' }, // theme 付きの曲はそのテーマのときだけ使える
 ];
+
+let themeId = 'normal';
+let themeTrack = 'game'; // テーマの既定曲
+const usable = (id) => GAME_TRACKS.some((t) => t.id === id && (!t.theme || t.theme === themeId));
+export const availableGameTracks = () => GAME_TRACKS.filter((t) => !t.theme || t.theme === themeId);
 
 let ctx = null;
 let master = null;
@@ -139,15 +144,14 @@ let bgmOut = null; // BGM専用（ミュートはここだけに掛ける）
 let current = null; // { name, alias, timer, step, nextTime }
 let volume = 0.5;
 let muted = false;
-let gameTrack = 'game';
-let trackChosen = false; // 設定画面で曲を選んだら、テーマの既定曲より優先する
+let chosenTrack = null; // 設定画面で選んだ曲。あればテーマの既定曲より優先する（そのテーマで使える曲のみ）
 
 try {
   muted = localStorage.getItem('bgm-muted') === '1';
   const v = parseFloat(localStorage.getItem('bgm-volume'));
   if (!Number.isNaN(v)) volume = Math.min(1, Math.max(0, v));
   const g = localStorage.getItem('bgm-game-track');
-  if (GAME_TRACKS.some((t) => t.id === g)) { gameTrack = g; trackChosen = true; }
+  if (GAME_TRACKS.some((t) => t.id === g)) chosenTrack = g;
 } catch { /* noop */ }
 
 function ensureCtx() {
@@ -200,7 +204,7 @@ function schedule(run) {
 
 // 'game' は設定で選ばれた曲に置き換えて再生する
 export function playBgm(alias) {
-  const name = alias === 'game' ? gameTrack : alias;
+  const name = alias === 'game' ? getGameTrack() : alias;
   if (current?.name === name) return;
   const c = ensureCtx();
   if (!c || !TRACKS[name]) return;
@@ -356,23 +360,20 @@ export function stopBgm() {
 }
 
 export function getGameTrack() {
-  return gameTrack;
+  return chosenTrack && usable(chosenTrack) ? chosenTrack : themeTrack;
 }
 
-// 季節テーマの既定曲。プレイヤーが設定で曲を選んでいれば、そちらを優先する
-export function setDefaultGameTrack(id) {
-  if (!GAME_TRACKS.some((t) => t.id === id)) return;
-  if (trackChosen) return;
-  gameTrack = id;
+// 季節テーマが変わったとき（テーマIDと既定曲）。ゲーム中なら曲もすぐ切り替える
+export function setBgmTheme(id, defaultTrack) {
+  themeId = id;
+  themeTrack = defaultTrack;
   if (current?.alias === 'game') playBgm('game');
 }
 
 export function setGameTrack(id) {
-  if (!GAME_TRACKS.some((t) => t.id === id)) return;
-  gameTrack = id;
-  trackChosen = true;
+  if (!usable(id)) return;
+  chosenTrack = id;
   try { localStorage.setItem('bgm-game-track', id); } catch { /* noop */ }
-  // ゲームプレイ中なら、すぐ新しい曲に切り替える
   if (current?.alias === 'game') playBgm('game');
 }
 

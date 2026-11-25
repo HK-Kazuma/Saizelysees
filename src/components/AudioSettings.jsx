@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { GAME_TRACKS, getGameTrack, setGameTrack, getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
+import { availableGameTracks, getGameTrack, setGameTrack, getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
 
 export default function AudioSettings({ onClose }) {
   const [track, setTrack] = useState(getGameTrack());
@@ -24,7 +24,7 @@ export default function AudioSettings({ onClose }) {
           <div className="audio-row">
             <span>曲</span>
             <div style={{ display: 'flex', gap: 6, flex: 1, justifyContent: 'flex-end' }}>
-              {GAME_TRACKS.map((t) => (
+              {availableGameTracks().map((t) => (
                 <button
                   key={t.id}
                   className={`hud-btn ${track === t.id ? 'primary' : ''}`}
