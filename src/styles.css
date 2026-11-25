@@ -928,3 +928,11 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .shop-closed b { font-size: 14px; }
 .shop-list.closed { opacity: 0.4; pointer-events: none; filter: grayscale(0.6); }
 .hud-btn.shut { opacity: 0.55; filter: grayscale(0.6); }
+
+/* 閉店レポートの今日の収支 */
+.pl { margin: 6px 0; padding: 6px 10px; background: #fbf6e8; border: 1px solid #d9d0b8; border-radius: 8px; font-size: 13px; }
+.pl-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 1px 0; }
+.pl-row small { margin-left: 6px; opacity: 0.65; }
+.pl-row.labor { color: #7a1410; font-weight: 700; }
+.pl-row.total { margin-top: 3px; padding-top: 3px; border-top: 1px solid #cfc5a8; font-weight: 800; }
+.pl-row.total.deficit b { color: #c0211a; }

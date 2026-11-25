@@ -132,7 +132,7 @@ export function makeReport(state) {
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
   return {
     day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
-    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0,
+    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0, hasWage: shiftOn(state),
   };
 }
 
