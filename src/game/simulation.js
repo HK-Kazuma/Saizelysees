@@ -12,6 +12,7 @@ import { findPath } from './pathfinding.js';
 import { slotOf, wageOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 import { wageOf } from '../data/shop.js';
+import { checkTips } from './mail.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -396,6 +397,7 @@ export function addXp(state, xp) {
     state.xp -= xpToNext(state.level);
     state.level++;
     state.events.push({ type: 'levelup', level: state.level, ...unlocksAt(state.level, state) });
+    checkTips(state);
   }
 }
 
@@ -997,6 +999,7 @@ function stepClock(state, dt) {
     payWages(state);
     state.clockDelta = 0; // 支払ったあとは、今日ぶんの人件費を増やさない
     state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
+    checkTips(state); // 条件を満たしたヒントのメール
   }
 }
 

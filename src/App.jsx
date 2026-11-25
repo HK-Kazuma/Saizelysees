@@ -9,6 +9,7 @@ import CookingPanel from './components/CookingPanel.jsx';
 import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
 import PcMenu, { PcIcon } from './components/PcMenu.jsx';
+import { unreadCount } from './game/mail.js';
 import ReportPanel from './components/ReportPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
@@ -132,6 +133,7 @@ export default function App() {
           <Effects store={store} toast={toast} />
           <button className="pc-btn" onClick={() => setModal('pc')} aria-label="メニュー">
             <PcIcon />
+            {unreadCount(state) > 0 && <i className="pc-badge">{unreadCount(state)}</i>}
             <span>メニュー</span>
           </button>
         </div>

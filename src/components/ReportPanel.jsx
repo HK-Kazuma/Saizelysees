@@ -5,7 +5,7 @@ import { fmtCoins, EXPENSE_CATS, sumExpense } from '../game/state.js';
 
 // 23:00に出る、その日のレポート。閉じるまでゲーム内の時間は止まる
 // 最終日の本部評価（ランク・達成率・次の店の開店資金）
-function Evaluation({ stage }) {
+function Evaluation({ stage, coins }) {
   const ev = stage.evaluation;
   const g = ev.grants;
   return (
@@ -16,10 +16,16 @@ function Evaluation({ stage }) {
         <div>目標の {Math.round(ev.rate * 100)}%（点数 ¥{ev.score.toLocaleString()}）</div>
         {stage.angry > 0 && <small>怒って帰った {stage.angry}人ぶんを減点</small>}
         {ev.nextCity && (
-          <div className="eval-grant">
-            {ev.nextCity}の開店資金：＋¥{(g.rank + g.pioneer).toLocaleString()}
-            <small>（評価 ¥{g.rank.toLocaleString()}{g.pioneer > 0 && `／先行特典 ¥${g.pioneer.toLocaleString()}`}）</small>
-          </div>
+          <>
+            <div className="eval-grant">
+              {ev.nextCity}の開店資金：＋¥{(g.rank + g.pioneer).toLocaleString()}
+              <small>（評価 ¥{g.rank.toLocaleString()}{g.pioneer > 0 && `／先行特典 ¥${g.pioneer.toLocaleString()}`}）</small>
+            </div>
+            <div className={`eval-grant ${coins < stage.transferCost ? 'short' : ''}`}>
+              人事異動の費用（後任店長の採用）：¥{stage.transferCost.toLocaleString()}
+              <small>{coins >= stage.transferCost ? '（この店の所持金から支払います）' : `（所持金があと ¥${(stage.transferCost - coins).toLocaleString()} 足りません）`}</small>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -71,7 +77,7 @@ export default function ReportPanel({ report, onClose, onNext }) {
             <span>累計 ¥{stage.sales.toLocaleString()} / 目標 ¥{stage.goal.toLocaleString()}</span>
           </div>
         )}
-        {ev && <Evaluation stage={stage} />}
+        {ev && <Evaluation stage={stage} coins={report.coins} />}
         <div className="report-title">売れた料理</div>
         <div className="recipe-list">
           {report.items.length === 0 && <div className="report-empty">今日は売れた料理がありませんでした</div>}
@@ -91,7 +97,10 @@ export default function ReportPanel({ report, onClose, onNext }) {
         </div>
         <div className="report-foot">
           {ev?.nextCity ? (
-            <button className="hud-btn primary" onClick={onNext}>{ev.nextCity}に出店する</button>
+            <>
+              <button className="hud-btn" onClick={onClose}>{ev.fresh ? 'もう少し続ける' : '明日へ'}</button>
+              <button className="hud-btn primary" disabled={report.coins < stage.transferCost} onClick={onNext}>{ev.nextCity}へ人事異動する（¥{stage.transferCost.toLocaleString()}）</button>
+            </>
           ) : (
             <button className="hud-btn primary" onClick={onClose}>{ev ? 'つづける' : '明日へ'}</button>
           )}

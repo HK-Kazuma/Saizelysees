@@ -5,6 +5,8 @@ import ShopPanel from './ShopPanel.jsx';
 import StoreInfo from './StoreInfo.jsx';
 import StaffSettings from './StaffSettings.jsx';
 import ShiftPanel from './ShiftPanel.jsx';
+import MailApp from './MailApp.jsx';
+import { unreadCount } from '../game/mail.js';
 
 // ドット絵風のアイコン（SVG）
 export function PcIcon({ size = 26 }) {
@@ -82,10 +84,25 @@ const ShiftIcon = () => (
   </svg>
 );
 
+const MailIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+    <rect x="1" y="3" width="14" height="10" fill="#2b1a14" />
+    <rect x="2" y="4" width="12" height="8" fill="#fbf3e0" />
+    <rect x="2" y="4" width="2" height="1" fill="#b3202a" />
+    <rect x="4" y="5" width="2" height="1" fill="#b3202a" />
+    <rect x="6" y="6" width="4" height="1" fill="#b3202a" />
+    <rect x="10" y="5" width="2" height="1" fill="#b3202a" />
+    <rect x="12" y="4" width="2" height="1" fill="#b3202a" />
+    <rect x="3" y="9" width="3" height="1" fill="#8a8a92" />
+    <rect x="10" y="9" width="3" height="1" fill="#8a8a92" />
+  </svg>
+);
+
 const APPS = [
   { id: 'recipes', name: 'レシピ', Icon: BookIcon },
   { id: 'shop', name: 'ショップ', Icon: ShopIcon },
   { id: 'info', name: '店舗情報', Icon: ChartIcon },
+  { id: 'mail', name: 'メール', Icon: MailIcon, badge: unreadCount },
   { id: 'staff', name: '従業員', Icon: StaffIcon },
   { id: 'shift', name: 'シフト', Icon: ShiftIcon, needs: shiftOn }, // シフトのある店（草津〜）だけ
 ];
@@ -109,9 +126,10 @@ export default function PcMenu({ state, act, onClose }) {
               <button className="pc-x" onClick={onClose} aria-label="とじる">×</button>
             </div>
             <div className="pc-desktop">
-              {APPS.filter((a) => !a.needs || a.needs(state)).map(({ id, name, Icon }) => (
+              {APPS.filter((a) => !a.needs || a.needs(state)).map(({ id, name, Icon, badge }) => (
                 <button key={id} className="pc-app" onClick={() => setApp(id)}>
                   <Icon />
+                  {badge && badge(state) > 0 && <i className="pc-badge">{badge(state)}</i>}
                   <span>{name}</span>
                 </button>
               ))}
@@ -129,6 +147,7 @@ export default function PcMenu({ state, act, onClose }) {
       {app === 'recipes' && <RecipeBook state={state} onClose={() => setApp(null)} />}
       {app === 'shop' && <ShopPanel state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'staff' && <StaffSettings state={state} act={act} onClose={() => setApp(null)} />}
+      {app === 'mail' && <MailApp state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'shift' && <ShiftPanel state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'info' && <StoreInfo state={state} onClose={() => setApp(null)} />}
     </>
