@@ -5,6 +5,9 @@ import { P, fillPoly, isoBox, hash } from './pixel.js';
 import { STORE_SIZES } from '../data/shop.js';
 import { BACK_ROWS } from '../game/layout.js';
 import { getTheme } from './themes.js';
+import { regionScene } from '../data/regions.js';
+import * as B from './buildings.js';
+import { shade } from './pixel.js';
 
 // 土地は最大サイズの店が建つ広さで固定。道路はその外周をぐるっと一周する。
 // 店が拡張されても道路・街路樹は動かず、店が空き地に広がっていく。
@@ -76,16 +79,69 @@ function speckle(g, x, y, n, colors, seed) {
 }
 
 // ───────────────────────── 地面 ─────────────────────────
-export function drawGround(g, L, cw, ch) {
+// 地域の地面の色 [A, B]
+const RT = {
+  water: ['#5fa8d6', '#589fcc'], lotus: ['#5fa8d6', '#589fcc'], sand: ['#e8d9a8', '#e0cf9a'], stone: ['#c2bba9', '#b8b19e'],
+  deck: ['#b88a5a', '#ad8050'], path: ['#dccba0', '#d4c294'], gravel: ['#dcd9cf', '#d2cfc4'],
+};
+const wet = (k) => k === 'water' || k === 'lotus';
+// 地域の地面がこのタイルを上書きするか。空き地はすべて、土地のまわりの道路(4タイル)より外へ延びる道路は湖・砂浜のときだけ
+function regionKind(scene, x, y, t) {
+  if (!scene) return null;
+  const k = scene.ground.get(`${x},${y}`);
+  if (!k) return null;
+  if (t === 'G') return k;
+  const { a, b } = tileDist(x, y);
+  return Math.max(a, b) >= 4 && (wet(k) || k === 'sand') ? k : null;
+}
+function regionTile(g, x, y, kind, scene, snow) {
+  let [a, b] = RT[kind] || RT.path;
+  if (snow && !wet(kind)) { a = shade(a, 0.55); b = shade(b, 0.55); }
+  quad(g, x, y, x + 1, y + 1, (x + y) % 2 === 0 ? a : b);
+  if (wet(kind)) {
+    speckle(g, x, y, 3, ['#8cc7ea', '#79b8df'], x * 41 + y * 17); // さざ波
+    const dry = (dx, dy) => !wet(scene.ground.get(`${x + dx},${y + dy}`));
+    const foam = '#d8eef8';
+    if (dry(0, 1)) quad(g, x, y + 0.86, x + 1, y + 1, foam);
+    if (dry(0, -1)) quad(g, x, y, x + 1, y + 0.14, foam);
+    if (dry(1, 0)) quad(g, x + 0.86, y, x + 1, y + 1, foam);
+    if (dry(-1, 0)) quad(g, x, y, x + 0.14, y + 1, foam);
+    if (kind === 'lotus') {
+      for (let i = 0; i < 4; i++) {
+        const pu = x + 0.15 + hash(x, y, 30 + i) * 0.6, pv = y + 0.15 + hash(x, y, 40 + i) * 0.6;
+        quad(g, pu, pv, pu + 0.22, pv + 0.2, i % 2 ? '#5e9e4a' : '#6fb052');
+        if (hash(x, y, 50 + i) < 0.45) {
+          const q = P(pu + 0.1, pv + 0.1, 2);
+          g.fillStyle = '#f39ab8';
+          g.fillRect(Math.round(q.x), Math.round(q.y), 2, 2);
+        }
+      }
+    }
+  } else if (kind === 'stone') {
+    quad(g, x, y, x + 1, y + 0.05, shade(a, -0.15));
+    quad(g, x, y + 0.5, x + 1, y + 0.55, shade(a, -0.12));
+    quad(g, x + ((y % 2) ? 0.5 : 0), y, x + ((y % 2) ? 0.55 : 0.05), y + 1, shade(a, -0.15));
+  } else if (kind === 'deck') {
+    for (let i = 1; i < 4; i++) quad(g, x, y + i * 0.25, x + 1, y + i * 0.25 + 0.04, shade(a, -0.2));
+  } else {
+    speckle(g, x, y, 4, [shade(a, -0.12), shade(a, 0.1)], x * 29 + y * 13);
+  }
+}
+
+export function drawGround(g, L, cw, ch, regionId) {
   const th = getTheme();
   const K = th.ground;
+  const scene = regionScene(regionId);
   for (let y = WORLD.yMin - R; y < WORLD.rows + R; y++) {
     for (let x = -R; x < WORLD.cols + R; x++) {
       const t = tileType(L, x, y);
       if (!t) continue;
       if (!visible(P(x + 0.5, y + 0.5), cw, ch, 40, 20, 20)) continue;
       const alt = (x + y) % 2 === 0;
-      if (t === 'G') {
+      const rk = regionKind(scene, x, y, t);
+      if (rk) {
+        regionTile(g, x, y, rk, scene, th.snow);
+      } else if (t === 'G') {
         quad(g, x, y, x + 1, y + 1, alt ? K.grassA : K.grassB);
         const h = hash(x, y, 7);
         if (h < th.tuft.p) speckle(g, x, y, th.tuft.n, th.tuft.mix ? [K.tuft, K.tuftL, K.tuftL] : [K.tuft, K.tuftL], x * 131 + y * 17);
@@ -123,6 +179,7 @@ export function drawGround(g, L, cw, ch) {
     for (let x = -R; x < WORLD.cols + R; x++) {
       const t = tileType(L, x, y);
       if (!t || !visible(P(x + 0.5, y + 0.5), cw, ch, 40, 20, 20)) continue;
+      if (t !== 'G' && regionKind(scene, x, y, t)) continue; // 湖の下になった道路
       if (t === 'S' || t === 'O') {
         // 道路に面した辺に縁石
         if (tileType(L, x, y + 1) === 'R') quad(g, x, y + 0.84, x + 1, y + 1, K.curb);
@@ -275,6 +332,12 @@ function drawStreetLamp(g, u, v) {
   isoBox(g, u - 0.13, v - 0.13, 0.26, 0.26, LAMP_H + 3, 2, metal);
 }
 
+// 湖の上になった街路樹か
+function underWater(scene, t) {
+  const x = Math.floor(t.u), y = Math.floor(t.v);
+  return !!regionKind(scene, x, y, tileType({ cols: 0, rows: 0 }, x, y));
+}
+
 // ───────────────────────── 街路樹の位置 ─────────────────────────
 // 店のサイズに関係なく外側の歩道の上に固定。夜のイルミネーションでも使う
 let plantCache = null;
@@ -299,17 +362,18 @@ function streetPlants() {
 }
 
 // イルミネーションをつける木（夜に光らせる）。冠の高さ(px)つき
-export function treeLights() {
-  return streetPlants().filter((t) => t.tree).map((t) => ({ u: t.u, v: t.v, kind: t.kind }));
+export function treeLights(regionId) {
+  const scene = regionScene(regionId);
+  return streetPlants().filter((t) => t.tree && !underWater(scene, t)).map((t) => ({ u: t.u, v: t.v, kind: t.kind }));
 }
 
 // ───────────────────────── まとめて描く ─────────────────────────
 // 建物の奥側(u<0 または v<0)は建物より先に、手前側は建物のあとに、奥→手前の順で描く
-export function drawOutside(g, L, cw, ch, phase) {
+export function drawOutside(g, L, cw, ch, phase, regionId) {
   const items = [];
-  const add = (u, v, fn) => {
+  const add = (u, v, fn, depth = u + v) => {
     const behind = u < 0 || v < 0;
-    if (behind === (phase === 'back')) items.push({ depth: u + v, fn });
+    if (behind === (phase === 'back')) items.push({ depth, fn });
   };
   const WC = WORLD.cols, WR = WORLD.rows;
   const lo = -0.8, loV = WORLD.yMin - 0.8, hiU = WC + 0.8, hiV = WR + 0.8; // レールの位置（歩道の車道側）
@@ -350,12 +414,56 @@ export function drawOutside(g, L, cw, ch, phase) {
   for (const [u, v] of [[hiU, hiV], [lo, hiV], [hiU, loV], [lo, loV]]) add(u, v + 0.1, () => postAt(g, u, v));
 
   // 外側の歩道の街路樹と植え込み
+  const sceneP = regionScene(regionId);
   for (const t of streetPlants()) {
     if (!visible(P(t.u, t.v), cw, ch, 60, 90, 40)) continue;
+    if (underWater(sceneP, t)) continue;
     if (t.tree) add(t.u, t.v, () => drawTree(g, t.u, t.v, t.kind));
     else add(t.u, t.v, () => drawBush(g, t.u, t.v));
   }
 
+  // 地域の風景（建物・街並み・自然）。店がまだ広がっていない空き地には小物を置く
+  const scene = regionScene(regionId);
+  if (scene) {
+    const inLand = (u, v) => u >= 0 && u < L.cols && v >= WORLD.yMin && v < L.rows;
+    for (const p of [...scene.props, ...scene.inner(L)]) {
+      const cu = p.u0 != null ? (p.u0 + p.u1) / 2 : p.u + (p.du || 0) / 2;
+      const cv = p.v + (p.dv || 0) / 2;
+      if (inLand(cu, cv)) continue;
+      if (p.type !== 'railway' && p.type !== 'mountain' && !visible(P(cu, cv), cw, ch, 220, 260, 80)) continue;
+      add(cu, cv, () => drawProp(g, p), p.depth ?? cu + cv);
+    }
+  }
+
   items.sort((a, b) => a.depth - b.depth);
   items.forEach((it) => it.fn());
+}
+
+function drawProp(g, p) {
+  switch (p.type) {
+    case 'castle': return B.castle(g, p.u, p.v);
+    case 'pine': return B.pine(g, p.u, p.v);
+    case 'sakura': return B.sakura(g, p.u, p.v);
+    case 'roundTree': return B.roundTree(g, p.u, p.v);
+    case 'bush': return B.bush(g, p.u, p.v);
+    case 'bushPink': return B.bush(g, p.u, p.v, ['#ffe3ee', '#f7b4cc', '#e58aa9', '#b86a86']);
+    case 'lantern': return B.lantern(g, p.u, p.v);
+    case 'bench': return B.bench(g, p.u, p.v);
+    case 'flowerBed': return B.flowerBed(g, p.u, p.v);
+    case 'mountain': return B.mountain(g, p.u, p.v, p.w, p.h);
+    case 'machiya': return B.machiya(g, p.u, p.v, p.du, p.dv, p.seed);
+    case 'house': return B.house(g, p.u, p.v, p.du, p.dv, p.seed);
+    case 'shop': return B.shop(g, p.u, p.v, p.du, p.dv, p.seed);
+    case 'mansion': return B.mansion(g, p.u, p.v, p.du, p.dv, p.h, p.seed);
+    case 'honjin': return B.honjin(g, p.u, p.v);
+    case 'station': return B.station(g, p.u, p.v);
+    case 'railway': return B.railway(g, p.u0, p.u1, p.v);
+    case 'train': return B.train(g, p.u, p.v, p.cars);
+    case 'paddleBoat': return B.paddleBoat(g, p.u, p.v);
+    case 'ukimido': return B.ukimido(g, p.u, p.v);
+    case 'torii': return B.torii(g, p.u, p.v);
+    case 'templeGate': return B.templeGate(g, p.u, p.v);
+    case 'templeHall': return B.templeHall(g, p.u, p.v);
+    default: return undefined;
+  }
 }
