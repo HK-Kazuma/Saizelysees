@@ -31,7 +31,7 @@ export default function HUD({ state, act, onOpen }) {
         <span className="logo-sub">{store ? `${store.city}・` : ''}{STORE_SIZES[state.sizeIdx].name}</span>
       </div>
       <div className="hud-chip clock" title="ゲーム内の時刻（10:00開店 / 21:30ラストオーダー / 22:00閉店）">
-        <span className="day">{store && !state.stage.done ? `${Math.min(dayNo, store.days)}/${store.days}日目` : `${state.day}日目`}</span>
+        <span className="day">{store ? `${dayNo}/${store.days}日目` : `${state.day}日目`}</span>
         <ClockIcon clock={Math.floor(state.clock / 10) * 10} />
         <span className="time">{clockText(state.clock)}</span>
         {isNight(state.clock) && <MoonIcon />}

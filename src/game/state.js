@@ -2,7 +2,8 @@
 import { RECIPES } from '../data/recipes.js';
 import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from '../data/shop.js';
 import { buildLayout } from './layout.js';
-import { STORE_MAP, nextStoreOf, FIRST_STORE, START_COINS, evaluate, startGrants } from '../data/stores.js';
+import { STORE_MAP, nextStoreOf, FIRST_STORE, START_COINS, TRANSFER_COST, ANGRY_PENALTY, evaluate, startGrants } from '../data/stores.js';
+import { checkTips } from './mail.js';
 import { normalizeHallTasks, normalizeSkills, MANAGER_SKILLS, defaultSkills } from '../data/staffTasks.js';
 
 // セーブは「会社全体」と「店舗ごと」に分けて保存する（v2）。旧セーブ(v1)は1店舗ぶんが1つにまとまっていた。
@@ -119,6 +120,7 @@ export const EXPENSE_CATS = [
   { id: 'decor', name: '装飾' },
   { id: 'expand', name: '店舗の拡張・テーブル' },
   { id: 'labor', name: '人件費' },
+  { id: 'transfer', name: '人事異動（後任店長の採用）' },
   { id: 'penalty', name: 'クレーマー被害' },
 ];
 // ドリンクバー：1人ぶんの料金と、交換までに出せるドリンクの数（強化で増える）
@@ -147,13 +149,20 @@ export function stageSummary(state, today = { sales: 0, angry: 0 }) {
   const dayNo = state.day - st.startDay + 1;
   const sales = st.sales + today.sales;
   const angry = st.angry + today.angry;
-  const sum = { city: store.city, dayNo: Math.min(dayNo, store.days), days: store.days, goal: store.goal, sales, angry, done: st.done };
-  // 最終日の閉店レポートでは、本部評価も出す
+  // 期間(14日)を過ぎても、日数は数え続ける（15/14日目…）
+  const sum = { city: store.city, dayNo, days: store.days, goal: store.goal, sales, angry, done: st.done };
+  const next = nextStoreOf(store.id);
+  const best = Math.max(state.bestDaySales || 0, today.sales);
   if (!st.done && dayNo >= store.days) {
+    // 期間の最終日の閉店レポート：本部評価を出す（確定は「つづける」か人事異動で閉じたとき）
     const ev = evaluate(sales, angry, store.goal);
-    const next = nextStoreOf(store.id);
-    sum.evaluation = { ...ev, nextCity: next?.city || null, grants: startGrants(ev.rank, Math.max(state.bestDaySales || 0, today.sales)) };
+    sum.evaluation = { ...ev, fresh: true, nextCity: next?.city || null, grants: startGrants(ev.rank, best) };
+  } else if (st.done && st.result && next) {
+    // 評価のあとも店を続けている間は、保存した評価と人事異動の案内を毎日のレポートに出す
+    const score = Math.max(0, st.result.sales - st.result.angry * ANGRY_PENALTY);
+    sum.evaluation = { rank: st.result.rank, rate: st.result.rate, score, fresh: false, nextCity: next.city, grants: startGrants(st.result.rank, best) };
   }
+  if (sum.evaluation?.nextCity) sum.transferCost = TRANSFER_COST;
   return sum;
 }
 
@@ -172,6 +181,7 @@ export function createInitialState() {
     wageAcc: 0, // 今日ぶんの人件費（閉店後のレポートが出るときにまとめて払う）
     shift: defaultShift(), // 時間帯ごとの出勤人数 { kitchen: [12コマ], hall: [12コマ] }
     // ここから「会社全体」（店をまたいで引き継ぐ）
+    mails: [], // 本部からのメール { id, kind, key, params, day, store, read }（会社全体）
     storeRecords: {}, // 出店した店の成績 { 店ID: { rank, rate, sales, angry, days } }
     managerSkills: defaultSkills(MANAGER_SKILLS), // 店長の能力レベル { take, serve, bus, checkout, drink, cook }
     bestDaySales: 0, // 1日の最高売上（先行プレイヤー特典用。定義はP2で確定）
@@ -206,7 +216,7 @@ export function createInitialState() {
   return state;
 }
 
-const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords'];
+const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords', 'mails'];
 const STORE_KEYS = ['stage', 'shift', 'wageAcc', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
@@ -306,6 +316,9 @@ export function loadGame() {
   } catch {
     /* 壊れたセーブは無視して新規開始 */
   }
+  if (!state.mails.length) checkTips(state, true);
+  checkTips(state);
+  state.events.length = 0; // 読み込み直後のお知らせは出さない（メール一覧で見られる）
   return state;
 }
 

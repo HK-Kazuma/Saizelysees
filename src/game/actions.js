@@ -3,7 +3,8 @@ import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
 import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory, defaultShift, shiftOn, SLOTS } from './state.js';
-import { STORE_MAP, nextStoreOf, startGrants } from '../data/stores.js';
+import { STORE_MAP, nextStoreOf, startGrants, TRANSFER_COST } from '../data/stores.js';
+import { sendMail, checkTips } from './mail.js';
 import { applyDevAction } from '../dev/presets.js';
 
 const fail = (msg) => ({ ok: false, msg });
@@ -30,14 +31,20 @@ function closeReport(state) {
     st.angry += r.angry;
     st.served += r.served;
     const ev = r.stage?.evaluation;
-    if (ev) {
+    if (ev?.fresh) {
       st.done = true;
       st.result = { rank: ev.rank, rate: ev.rate, sales: r.stage.sales, angry: r.stage.angry };
       state.storeRecords[state.storeId] = { ...st.result, days: r.stage.days };
+      const next = nextStoreOf(state.storeId);
+      if (next) {
+        // 本部から、次の店への人事異動の内示（費用と手続きの案内）
+        sendMail(state, { id: `notice:${state.storeId}`, kind: 'notice', params: { from: STORE_MAP[state.storeId].city, to: next.city, rank: ev.rank, cost: TRANSFER_COST, bonus: ev.grants.rank + ev.grants.pioneer } });
+      }
     }
   }
   state.report = null;
   state.daily = emptyDaily();
+  checkTips(state);
 }
 
 const manager = (state) => state.workers.find((w) => w.role === 'manager');
@@ -277,25 +284,40 @@ export function applyAction(state, action) {
       closeReport(state);
       return okMsg();
     case 'OPEN_NEXT_STORE': {
-      // 最終日の評価のあと、次の店に出店する。いまの店のセーブは残し、時間を止めたままにする
+      // 人事異動：期間の評価のあと、後任の店長を雇って（費用はいまの店の所持金）次の店に移る。いまの店のセーブは残す
       const ev = state.report?.stage?.evaluation;
       const next = ev && nextStoreOf(state.storeId);
-      if (!next) return fail('出店できません');
+      if (!next) return fail('人事異動できません');
+      if (state.coins < TRANSFER_COST) return fail(`人事異動には後任店長の採用費 ¥${TRANSFER_COST.toLocaleString()} が必要です`);
+      const fromCity = STORE_MAP[state.storeId].city;
       closeReport(state);
-      saveGame(state); // いまの店を、最終の状態で保存する
+      state.coins -= TRANSFER_COST;
+      state.daily.expense.transfer = TRANSFER_COST; // 出費として記録（人事異動の採用費）
+      saveGame(state); // いまの店を、最終の状態（採用費を払ったあと）で保存する
       const grants = startGrants(ev.rank, state.bestDaySales);
       const bonus = grants.rank + grants.pioneer;
       const fresh = createInitialState();
       // 会社全体のものは引き継ぐ。店舗のものは作り直す
-      Object.assign(fresh, { managerSkills: state.managerSkills, bestDaySales: state.bestDaySales, storeRecords: state.storeRecords, storeId: next.id });
+      Object.assign(fresh, { managerSkills: state.managerSkills, bestDaySales: state.bestDaySales, storeRecords: state.storeRecords, mails: state.mails, storeId: next.id });
       fresh.coins += bonus;
       const speed = state.speed;
       Object.keys(state).forEach((k) => delete state[k]);
       Object.assign(state, fresh, { speed });
       syncWorkers(state);
-      state.events.push({ type: 'expand', text: `${next.city}に出店しました！${bonus ? `（開店資金 +¥${bonus.toLocaleString()}）` : ''}` });
+      state.events.push({ type: 'expand', text: `${next.city}に人事異動しました！${bonus ? `（開店資金 +¥${bonus.toLocaleString()}）` : ''}` });
+      // 本部から辞令のメール
+      sendMail(state, { id: `transfer:${next.id}`, kind: 'transfer', params: { from: fromCity, to: next.city, pref: next.pref, rank: ev.rank, cost: TRANSFER_COST, coins: state.coins, bonus } });
+      checkTips(state);
       return okMsg();
     }
+    case 'READ_MAIL': {
+      const m = state.mails.find((x) => x.id === action.id);
+      if (m) m.read = true;
+      return okMsg();
+    }
+    case 'READ_ALL_MAIL':
+      state.mails.forEach((m) => { m.read = true; });
+      return okMsg();
     case 'SET_PAUSED': // メニューを開いている間は時間を止める
       state.paused = !!action.paused;
       return okMsg();

@@ -11,6 +11,9 @@ export const nextStoreOf = (id) => STORES[STORES.findIndex((s) => s.id === id) +
 
 export const START_COINS = 1000;
 
+// 人事異動（次の店へ移る）のとき、後任の店長を雇うために、いまの店の所持金から払う費用
+export const TRANSFER_COST = 100000;
+
 // ───────── 本部評価 ─────────
 // 評価の点数 ＝ 期間中の総売上 − 怒って帰った人数 × ANGRY_PENALTY。目標に対する達成率でランクが決まる。
 // （人時売上高・原価率は、指標ができる P3・P4 で加える）
