@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { STORES, STORE_MAP, TRANSFER_COST } from '../data/stores.js';
-import { loadJapan, buildBase, drawMap, project, fitZoom, clampCam, boxOf, worldToScreen, WORLD } from '../render/japanmap.js';
+import { loadJapan, buildBase, drawMap, project, fitZoom, clampCam, boxOf, worldToScreen, ZS } from '../render/japanmap.js';
 import { getCharSprite } from '../render/sprites.js';
 
 const MANAGER_LOOK = { hair: 1, shirt: 'manager', pants: 0, skin: 0, long: false };
@@ -65,9 +65,8 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
   }), []);
   const kinkiCam = () => {
     const { w, h, dpr } = size.current;
-    return { cx: KINKI.cx, cy: KINKI.cy, k: Math.min(fitZoom(KINKI, w, h, 1.1), 18 * dpr) };
+    return { cx: KINKI.cx, cy: KINKI.cy, k: Math.min(fitZoom(KINKI, w, h, 1.08), (18 * dpr) / ZS) };
   };
-  const worldCam = () => ({ cx: WORLD.w / 2, cy: WORLD.h / 2, k: 0.01 }); // clampCam が全体が収まる倍率にそろえる
 
   // ───── 初期化：地図データの読み込み ─────
   useEffect(() => {
@@ -96,7 +95,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     return () => ro.disconnect();
   }, []);
 
-  // ───── 登場の演出：お店 → 日本列島 → 近畿地方 ─────
+  // ───── 登場の演出：お店 → 近畿地方が大きく映るところまでズームアウト（そこからは自由に動かせる） ─────
   useEffect(() => {
     if (!ready) return undefined;
     const token = ++anim.current;
@@ -106,14 +105,11 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
       const { w, h, dpr } = size.current;
       if (mode === 'transfer') {
         const here = storePos(STORES[fromIdx]);
-        cam.current = { cx: here.x, cy: here.y, k: 16 * dpr }; // お店のあたりに寄った状態から
+        cam.current = { cx: here.x, cy: here.y, k: (20 * dpr) / ZS }; // お店のあたりに寄った状態から
         clampCam(cam.current, w, h);
         await sleep(120);
         if (dead || anim.current !== token) return;
-        if (!(await flyTo(worldCam(), 1500))) return; // ズームアウトして日本列島
-        await sleep(450);
-        if (dead || anim.current !== token) return;
-        if (!(await flyTo(kinkiCam(), 1500))) return; // 近畿地方へ
+        if (!(await flyTo(kinkiCam(), 1700))) return; // 近畿地方が大きく映るところまでズームアウト
       } else {
         cam.current = kinkiCam();
         clampCam(cam.current, w, h);
@@ -224,8 +220,8 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     let best = null;
     for (const pin of pinsRef.current) {
       const q = worldToScreen(cam.current, w, h, pin.x, pin.y);
-      const d = Math.hypot(q.x - sx, q.y - (sy + 12 * dpr));
-      if (d < 22 * dpr && (!best || d < best.d)) best = { id: pin.id, d };
+      const d = Math.hypot(q.x - sx, q.y - (sy + 16 * dpr));
+      if (d < 32 * dpr && (!best || d < best.d)) best = { id: pin.id, d };
     }
     setSelected(best ? best.id : null);
   };
@@ -255,9 +251,9 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     route.current = [a, b];
     sprite.current = getCharSprite(MANAGER_LOOK);
     const { w, h, dpr } = size.current;
-    const box = boxOf([a, b], 22);
+    const box = boxOf([a, b], 44);
     // 2つの店が収まるところまで寄る
-    await flyTo({ cx: box.cx, cy: box.cy, k: Math.min(fitZoom(box, w, h * 0.7, 1.35), 14 * dpr) }, 1000);
+    await flyTo({ cx: box.cx, cy: box.cy, k: Math.min(fitZoom(box, w, h * 0.7, 1.35), (14 * dpr) / ZS) }, 1000);
     // 店長が歩いて移動する
     const t0 = performance.now();
     const dur = 2600;
@@ -275,7 +271,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     traveler.current = null;
     route.current = null;
     // 次の店に寄っていく
-    await flyTo({ cx: b.x, cy: b.y, k: 18 * dpr }, 1100);
+    await flyTo({ cx: b.x, cy: b.y, k: (20 * dpr) / ZS }, 1100);
     if (anim.current !== token) return;
     setPhase('arrived');
     onArrived?.();

@@ -4,7 +4,9 @@
 import { fillPoly, line, hash } from './pixel.js';
 
 // ───────── 投影（経度緯度 → 地図ピクセル） ─────────
-const PPD = 50; // 1度あたりのピクセル数（縦）。横は緯度によるちぢみを見込んで 0.8 倍
+const PPD = 100; // 1度あたりのピクセル数（縦）。横は緯度によるちぢみを見込んで 0.8 倍
+// ズーム倍率の目安を解像度に合わせるための係数（地図1ピクセルの細かさ。0.02度＝1）
+export const ZS = PPD / 50;
 const XS = 0.8;
 const LON0 = 122.5;
 const LAT1 = 45.8;
@@ -24,12 +26,6 @@ export const REGIONS = [
   { id: 'okinawa', name: '沖縄', prefs: ['okinawa'] },
 ];
 const REGION_OF = Object.fromEntries(REGIONS.flatMap((r) => r.prefs.map((p) => [p, r.id])));
-
-// 琵琶湖（元の都道府県データには湖がないので、おおまかな形を足す）。[経度, 緯度]
-const BIWA = [
-  [136.05, 35.52], [136.14, 35.46], [136.20, 35.38], [136.25, 35.32], [136.18, 35.22], [136.10, 35.15], [136.06, 35.08], [136.02, 35.02],
-  [135.93, 34.98], [135.89, 35.02], [135.88, 35.12], [135.92, 35.19], [135.95, 35.28], [135.93, 35.35], [135.97, 35.42], [136.00, 35.48],
-];
 
 // ───────── 色 ─────────
 const C = {
@@ -83,7 +79,8 @@ function build(d) {
     const ps = prefs.filter((p) => r.prefs.includes(p.id));
     return { ...r, label: { x: ps.reduce((s, p) => s + p.label.x, 0) / ps.length, y: ps.reduce((s, p) => s + p.label.y, 0) / ps.length } };
   });
-  return { prefs, regions, byId: Object.fromEntries(prefs.map((p) => [p.id, p])) };
+  const lakes = (d.lakes || []).map((l) => ({ id: l.id, ja: l.ja, o: toPts(l.o) }));
+  return { prefs, regions, lakes, byId: Object.fromEntries(prefs.map((p) => [p.id, p])) };
 }
 
 // ───────── 地図の画像（焼き込み） ─────────
@@ -98,14 +95,14 @@ export function buildBase(japan, unlocked) {
   g.fillRect(0, 0, cv.width, cv.height);
   // 海の波模様
   g.fillStyle = C.seaDot;
-  for (let y = 0; y < cv.height; y += 7) {
-    for (let x = 0; x < cv.width; x += 11) {
-      if (hash(x, y, 3) < 0.4) g.fillRect(x + Math.floor(hash(x, y, 4) * 6), y + Math.floor(hash(x, y, 5) * 4), 3, 1);
+  for (let y = 0; y < cv.height; y += 9) {
+    for (let x = 0; x < cv.width; x += 15) {
+      if (hash(x, y, 3) < 0.4) g.fillRect(x + Math.floor(hash(x, y, 4) * 9), y + Math.floor(hash(x, y, 5) * 5), 4, 1);
     }
   }
   const move = (pts, dx, dy) => pts.map((p) => ({ x: p.x + dx, y: p.y + dy }));
   // 陸地のかげ（海にうく）
-  for (const p of japan.prefs) for (const po of p.polys) fillPoly(g, move(po.o, 1, 2), C.shadow);
+  for (const p of japan.prefs) for (const po of p.polys) fillPoly(g, move(po.o, 2, 3), C.shadow);
   // 陸地
   const pat = {};
   const fillOf = (p) => {
@@ -125,10 +122,11 @@ export function buildBase(japan, unlocked) {
       for (const h of po.h) fillPoly(g, h, C.lake); // 湖（琵琶湖など）
     }
   }
-  // 琵琶湖
-  const biwa = BIWA.map(([lon, lat]) => project(lon, lat));
-  fillPoly(g, biwa, C.lake);
-  for (let i = 0; i < biwa.length; i++) line(g, biwa[i].x, biwa[i].y, biwa[(i + 1) % biwa.length].x, biwa[(i + 1) % biwa.length].y, C.seaDeep);
+  // 湖（琵琶湖）
+  for (const lk of japan.lakes) {
+    fillPoly(g, lk.o, C.lake);
+    for (let i = 0; i < lk.o.length - 1; i++) line(g, lk.o[i].x, lk.o[i].y, lk.o[i + 1].x, lk.o[i + 1].y, C.seaDeep);
+  }
   // 境界線：解放した県は濃く、未解放はうすく
   const outline = (p, color) => {
     for (const po of p.polys) {
@@ -147,7 +145,7 @@ export function buildBase(japan, unlocked) {
 export const fitZoom = (box, w, h, margin = 1.15) => Math.min(w / (box.w * margin), h / (box.h * margin));
 export function clampCam(cam, w, h) {
   const kMin = fitZoom({ w: WORLD.w, h: WORLD.h }, w, h, 1);
-  cam.k = Math.min(36, Math.max(kMin, cam.k));
+  cam.k = Math.min(24, Math.max(kMin, cam.k));
   const hw = w / (2 * cam.k), hh = h / (2 * cam.k);
   // 世界の外が大きく見えないようにする（世界が画面より小さい向きは中央に置く）
   cam.cx = WORLD.w <= hw * 2 ? WORLD.w / 2 : Math.min(WORLD.w - hw, Math.max(hw, cam.cx));
@@ -220,7 +218,7 @@ export function drawMap(g, japan, base, cam, opts) {
   const sw = w / cam.k, sh = h / cam.k;
   g.drawImage(base, cam.cx - sw / 2, cam.cy - sh / 2, sw, sh, 0, 0, w, h);
 
-  const z = cam.k / dpr; // 画面(CSS)ピクセルあたりの倍率
+  const z = (cam.k / dpr) * ZS; // 0.02度を画面(CSS)ピクセルいくつで描くか（文字を出す倍率の目安）
   const S = (v) => v * dpr; // CSSピクセル → デバイスピクセル
   const P = (x, y) => worldToScreen(cam, w, h, x, y);
 
@@ -229,8 +227,8 @@ export function drawMap(g, japan, base, cam, opts) {
   if (fadeRegion > 0) {
     g.globalAlpha = fadeRegion;
     for (const r of japan.regions) {
-      const p = P(r.label.x, r.label.y + (r.id === 'kyushu' ? 12 : 0));
-      text(g, r.name, p.x, p.y, S(r.id === 'okinawa' ? 12 : 17), '#35502f', 'rgba(255,255,255,0.8)');
+      const p = P(r.label.x, r.label.y + (r.id === 'kyushu' ? 24 : 0));
+      text(g, r.name, p.x, p.y, S(r.id === 'okinawa' ? 13 : 19), '#35502f', 'rgba(255,255,255,0.8)');
     }
     g.globalAlpha = 1;
   }
@@ -249,11 +247,20 @@ export function drawMap(g, japan, base, cam, opts) {
     g.globalAlpha = 1;
   }
 
+  // 湖の名前
+  if (z >= 2.2) {
+    for (const lk of japan.lakes) {
+      const b = boxOf(lk.o);
+      const q = P(b.cx, b.cy);
+      text(g, lk.ja, q.x, q.y, S(11), '#2c6f99', 'rgba(255,255,255,0.85)');
+    }
+  }
+
   // 経路（点線）
   if (opts.route?.length > 1) {
     g.strokeStyle = 'rgba(212,40,31,0.9)';
-    g.lineWidth = S(2.2);
-    g.setLineDash([S(6), S(5)]);
+    g.lineWidth = S(3);
+    g.setLineDash([S(8), S(6)]);
     g.lineDashOffset = -t * S(14);
     g.beginPath();
     opts.route.forEach((pt, i) => {
@@ -269,10 +276,10 @@ export function drawMap(g, japan, base, cam, opts) {
   for (const pin of pins) {
     const q = P(pin.x, pin.y);
     if (q.x < -60 || q.y < -80 || q.x > w + 60 || q.y > h + 60) continue;
-    const s = S(7.5);
+    const s = S(13);
     drawPin(g, q.x, q.y, pin.status, s, t);
-    const nameY = q.y + S(10) + (pin.dy || 0) * S(1);
-    text(g, `${pin.name}店`, q.x + (pin.dx || 0) * S(1), nameY, S(12), pin.status === 'future' ? '#555' : '#1b1b22');
+    const nameY = q.y + S(13) + (pin.dy || 0) * S(1);
+    text(g, `${pin.name}店`, q.x + (pin.dx || 0) * S(1), nameY, S(15), pin.status === 'future' ? '#555' : '#1b1b22');
   }
 
   // 移動中の店長
