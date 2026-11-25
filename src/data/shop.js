@@ -23,6 +23,10 @@ export const STAFF = [
 
 // 時給（ゲーム内の1時間あたり）。シフトのある店で、出勤している間だけ払う。店長は対象外。暫定の数値
 export const WAGE = { kitchen: 80, hall: 70 };
+// 店のレベルが WAGE_RAISE_LV を超えると（Lv16から）、時給が10%上がる（物価・採用競争の上昇）
+export const WAGE_RAISE_LV = 15;
+export const WAGE_RAISE = 1.1;
+export const wageOf = (role, level) => Math.round(WAGE[role] * (level > WAGE_RAISE_LV ? WAGE_RAISE : 1));
 
 // appeal: 店の魅力。来店ペースと待てる時間が伸びる
 export const DECOR = [

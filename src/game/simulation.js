@@ -11,7 +11,7 @@ import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
 import { slotOf, shiftOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
-import { WAGE } from '../data/shop.js';
+import { wageOf } from '../data/shop.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -1007,7 +1007,7 @@ function trackStaff(state, dm) {
   const paid = shiftOn(state);
   for (const w of state.workers) {
     if (w.role === 'manager' || w.shift === 'off') continue;
-    if (paid) state.wageAcc += (WAGE[w.role] * dm) / 60;
+    if (paid) state.wageAcc += (wageOf(w.role, state.level) * dm) / 60;
     if (w.shift !== 'on') continue;
     const busy = w.task ? dm : 0;
     const u = state.daily.util[w.role][slot];

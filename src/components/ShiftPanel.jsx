@@ -1,6 +1,6 @@
 import React from 'react';
 import { SLOTS, slotLabel, slotOf, dutyCount, sumExpense, fmtCoins } from '../game/state.js';
-import { WAGE, STAFF } from '../data/shop.js';
+import { wageOf, WAGE_RAISE_LV, STAFF } from '../data/shop.js';
 
 const ROLES = [
   { id: 'kitchen', name: 'キッチン' },
@@ -14,7 +14,7 @@ export default function ShiftPanel({ state, act, onClose }) {
   const planned = (role, i) => state.shift[role][i] ?? state.staff[role];
   const set = (role, i, count) => act({ type: 'SET_SHIFT', role, slot: i, count });
   // 1日ぶんの人件費の見込み（各コマ1時間ぶん。実際は出勤の9時台と閉店後の片付けで少し増える）
-  const dayCost = ROLES.reduce((s, r) => s + Array.from({ length: SLOTS }, (_, i) => planned(r.id, i)).reduce((a, n) => a + n, 0) * WAGE[r.id], 0);
+  const dayCost = ROLES.reduce((s, r) => s + Array.from({ length: SLOTS }, (_, i) => planned(r.id, i)).reduce((a, n) => a + n, 0) * wageOf(r.id, state.level), 0);
   const todayLabor = state.wageAcc; // 今日ここまでに発生した人件費。閉店後のレポートが出るときにまとめて払う
 
   return (
@@ -27,7 +27,7 @@ export default function ShiftPanel({ state, act, onClose }) {
         </div>
         <div className="si-body">
           <div className="st-help">
-            時間帯ごとに出勤する人数を決めます。出勤している間だけ時給がかかり、閉店後のレポートが出るときにまとめて払います（1時間あたり キッチン {yen(WAGE.kitchen)}／ホール {yen(WAGE.hall)}）。
+            時間帯ごとに出勤する人数を決めます。出勤している間だけ時給がかかり、閉店後のレポートが出るときにまとめて払います（1時間あたり キッチン {yen(wageOf('kitchen', state.level))}／ホール {yen(wageOf('hall', state.level))}）。{state.level > WAGE_RAISE_LV && `店がLv${WAGE_RAISE_LV}を超えたので、時給が10%上がっています。`}
             出勤していない人は店からいなくなるので、人が足りない時間は待ち時間が伸びます。
           </div>
           <div className="shift-grid" style={{ gridTemplateColumns: `3.6em repeat(${SLOTS}, minmax(0, 1fr))` }}>
