@@ -190,6 +190,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .task-emoji { font-size: 22px; line-height: 1; }
 .task-status { font-size: 11px; color: #7a6a5a; white-space: nowrap; }
 .dish-icon { image-rendering: pixelated; display: block; }
+.dish-icon.hires { image-rendering: auto; }
 .dish-icon.dim { filter: brightness(0) opacity(0.35); }
 
 /* ───────── モーダル共通 ───────── */
@@ -325,6 +326,12 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .recipe-detail { font-size: 12px; padding: 6px 4px 2px 50px; }
 .recipe-detail ol { margin: 4px 0 0; padding-left: 18px; }
 .recipe-ing { color: #5a4a3a; }
+.recipe-pop-back { z-index: 25; }
+.modal.recipe-pop { width: min(440px, 94vw); max-height: 92%; }
+.recipe-pop-body { padding: 12px 14px 16px; overflow-y: auto; font-size: 13px; display: flex; flex-direction: column; gap: 8px; }
+.recipe-pop-top { display: flex; align-items: center; gap: 14px; }
+.recipe-pop-info { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.recipe-pop-steps { margin: 0; padding-left: 20px; line-height: 1.6; }
 
 /* ───────── ギャラリー・メニュー ───────── */
 .modal.gallery { width: min(520px, 94vw); }
