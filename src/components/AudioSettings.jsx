@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { GAME_TRACKS, getGameTrack, getVolume, isMuted, setGameTrack, setMuted, setVolume } from '../audio/bgm.js';
+import { GAME_TRACKS, getGameTrack, setGameTrack, getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
 
 export default function AudioSettings({ onClose }) {
   const [track, setTrack] = useState(getGameTrack());
   const [muted, setMutedState] = useState(isMuted());
+  const [clickOn, setClickOn] = useState(isClickSfxOn());
   const [vol, setVol] = useState(Math.round(getVolume() * 100));
 
   return (
@@ -33,6 +34,12 @@ export default function AudioSettings({ onClose }) {
                 </button>
               ))}
             </div>
+          </div>
+          <div className="audio-row">
+            <span>ボタン音</span>
+            <button className={`hud-btn ${clickOn ? 'primary' : ''}`} onClick={() => { setClickSfxOn(!clickOn); setClickOn(!clickOn); }}>
+              {clickOn ? 'ON' : 'OFF'}
+            </button>
           </div>
           <div className="audio-row">
             <span>音量</span>

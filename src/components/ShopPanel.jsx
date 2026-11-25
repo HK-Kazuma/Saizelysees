@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { tableSlots } from '../game/layout.js';
-import { EQUIPMENT, EQUIP_MAP, STAFF, DECOR, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
+import { EQUIPMENT, EQUIP_MAP, STAFF, DECOR, STORE_SIZES, TABLE_PRICE, staffLimit } from '../data/shop.js';
 import { RECIPES } from '../data/recipes.js';
+import { drinkCap } from '../game/state.js';
 
 const SELFREG = EQUIP_MAP.selfreg;
+const QRORDER = EQUIP_MAP.qrorder;
 
 const TABS = [
   { id: 'equip', name: '設備' },
@@ -57,7 +59,7 @@ export default function ShopPanel({ state, act, onClose }) {
         </div>
         <div className="shop-list">
           {tab === 'equip' &&
-            EQUIPMENT.filter((e) => e.id !== 'selfreg').map((e) => {
+            EQUIPMENT.filter((e) => e.id !== 'selfreg' && e.id !== 'qrorder').map((e) => {
               const cur = state.equipment[e.id];
               const enables = RECIPES.filter((r) => r.req.includes(e.id) && r.req.length === 1).length;
               if (!cur.owned) {
@@ -69,7 +71,7 @@ export default function ShopPanel({ state, act, onClose }) {
               }
               const up = e.upgrade[cur.lv - 1];
               return (
-                <Item key={e.id} title={e.name} badge={`Lv${cur.lv}`} desc={e.id === 'drink' ? `会計ごとに +¥${100 * cur.lv}` : `調理時間 ${Math.round((1 - 0.15 * (cur.lv - 1)) * 100)}%`}
+                <Item key={e.id} title={e.name} badge={`Lv${cur.lv}`} desc={e.id === 'drink' ? `1人 +¥${100 * cur.lv}・ドリンク${drinkCap(state)}杯ぶん` : `調理時間 ${Math.round((1 - 0.15 * (cur.lv - 1)) * 100)}%`}
                   price={up ?? 0} label="強化する" done={up == null} disabled={state.coins < (up ?? 0)}
                   onBuy={() => act({ type: 'UPGRADE_EQUIP', id: e.id })} />
               );
@@ -78,9 +80,10 @@ export default function ShopPanel({ state, act, onClose }) {
           {tab === 'staff' &&
             STAFF.map((s) => {
               const n = state.staff[s.id];
-              const full = n >= size.staffMax;
+              const max = staffLimit(state, s.id);
+              const full = n >= max;
               return (
-                <Item key={s.id} title={s.name} badge={`${n}/${size.staffMax}人`} desc={s.desc} price={s.price[n] ?? 0} label="雇う"
+                <Item key={s.id} title={s.name} badge={`${n}/${max}人`} desc={s.desc} price={s.price[n] ?? 0} label="雇う"
                   locked={state.level < s.lv ? `Lv${s.lv}で解放` : null}
                   done={full} disabled={state.coins < (s.price[n] ?? Infinity)}
                   onBuy={() => act({ type: 'HIRE', role: s.id })} {...(full ? { label: next ? '拡張で増員' : '満員' } : {})} />
@@ -103,6 +106,9 @@ export default function ShopPanel({ state, act, onClose }) {
               <Item title={SELFREG.name} desc={SELFREG.desc} price={SELFREG.price} label="導入する"
                 done={state.equipment.selfreg.owned} locked={state.level < SELFREG.lv ? `Lv${SELFREG.lv}で解放` : null}
                 disabled={state.coins < SELFREG.price} onBuy={() => act({ type: 'BUY_EQUIP', id: 'selfreg' })} />
+              <Item title={QRORDER.name} desc={QRORDER.desc} price={QRORDER.price} label="導入する"
+                done={state.equipment.qrorder.owned} locked={state.level < QRORDER.lv ? `Lv${QRORDER.lv}で解放` : null}
+                disabled={state.coins < QRORDER.price} onBuy={() => act({ type: 'BUY_EQUIP', id: 'qrorder' })} />
               {next ? (
                 <Item title={`店舗拡張「${next.name}」`} desc={`${next.cols}×${next.rows}マスに広げる。テーブル最大${tableSlots(next.cols, next.rows).length}卓・スタッフ各${next.staffMax}人まで`}
                   price={next.price} label="拡張する" locked={state.level < next.lv ? `Lv${next.lv}で解放` : null}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tileToCss } from '../render/view.js';
 import DishIcon from './DishIcon.jsx';
+import { playAngrySfx } from '../audio/bgm.js';
 
 // シミュレーションから届くイベントを、DOMのアニメーションに変換する
 export default function Effects({ store, toast }) {
@@ -17,6 +18,12 @@ export default function Effects({ store, toast }) {
           setFloats((f) => [...f, { k, x: p.x, y: p.y, text: `+¥${e.amount}`, sub: `+${e.xp}EXP`, cls: e.quality === 3 ? 'gold perfect' : 'gold' }]);
           setTimeout(() => setFloats((f) => f.filter((x) => x.k !== k)), 1400);
         } else if (e.type === 'angry') {
+          const p = tileToCss(e.x, e.y, 34);
+          const k = ++id.current;
+          setFloats((f) => [...f, { k, x: p.x, y: p.y, text: e.text, cls: 'angry' }]);
+          setTimeout(() => setFloats((f) => f.filter((x) => x.k !== k)), 1400);
+        } else if (e.type === 'rage') {
+          playAngrySfx();
           const p = tileToCss(e.x, e.y, 34);
           const k = ++id.current;
           setFloats((f) => [...f, { k, x: p.x, y: p.y, text: e.text, cls: 'angry' }]);

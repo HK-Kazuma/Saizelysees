@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getCharSprite } from '../render/sprites.js';
+import { playPlateBreakSfx, playLadleHitSfx, playPlayerHurtSfx } from '../audio/bgm.js';
 
 // クレーマー対応：店長（お玉）とクレーマーの1対1の横画面ミニ格闘ゲーム。
 // お玉を3回当てれば撃退成功。店長の体力は3つで、負けると所持金の半分を持っていかれる。
@@ -48,6 +49,7 @@ function hurtPlayer(f, dir, onHit) {
   p.kb = dir * 34;
   p.atk = -1;
   f.fx.push({ x: p.x, y: GROUND - 62 - p.y, text: 'いたっ！', life: 0.6, color: '#ff7a6a' });
+  playPlayerHurtSfx();
   onHit('player');
   if (p.hp <= 0) {
     f.result = 'lose';
@@ -115,6 +117,7 @@ function stepFight(f, dt, input, onHit) {
       e.timer = 0.55;
       e.kb = p.face * 46;
       f.fx.push({ x: e.x, y: GROUND - 62, text: 'カーン！', life: 0.6, color: '#f6c83a' });
+      playLadleHitSfx();
       onHit('enemy');
       if (e.hp <= 0) {
         f.result = 'win';
@@ -130,6 +133,7 @@ function stepFight(f, dt, input, onHit) {
       const d = (pl.x - p.x) * p.face;
       if (!pl.dead && d > -6 && d < PLAYER_REACH) {
         pl.dead = true;
+        playPlateBreakSfx();
         f.fx.push({ x: pl.x, y: GROUND - pl.h - 10, text: 'パリン！', life: 0.5, color: '#9ad0f0' });
       }
     }

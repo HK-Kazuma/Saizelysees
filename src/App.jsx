@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createGameStore, useGame } from './game/store.js';
 import { preloadIcons } from './render/sprites.js';
 import { loadImage, pixelate } from './render/pixelate.js';
@@ -8,6 +8,7 @@ import TaskPanel from './components/TaskPanel.jsx';
 import CookingPanel from './components/CookingPanel.jsx';
 import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
+import PcMenu, { PcIcon } from './components/PcMenu.jsx';
 import ReportPanel from './components/ReportPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
 import Effects from './components/Effects.jsx';
@@ -17,8 +18,11 @@ import AudioSettings from './components/AudioSettings.jsx';
 import RotateHint from './components/RotateHint.jsx';
 import TitleScreen from './components/TitleScreen.jsx';
 import InstallGuide, { installGuidePlatform } from './components/InstallGuide.jsx';
-import { playBgm } from './audio/bgm.js';
+import { playBgm, playClickSfx } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
+
+// 開発者パネル。DEV 以外では null になり、動的 import ごと本番ビルドから消える
+const DevPanel = import.meta.env.DEV ? lazy(() => import('./dev/DevPanel.jsx')) : null;
 
 export default function App() {
   const store = useMemo(() => createGameStore(), []);
@@ -51,8 +55,15 @@ export default function App() {
         window.removeEventListener('keydown', kick);
       };
     }
-    playBgm('game');
-  }, [started]);
+    playBgm(fightId != null ? 'fight' : 'game'); // クレーマーとのバトル中は専用BGM
+    // ゲーム中は、どのボタンを押しても効果音
+    const onClick = (e) => {
+      const b = e.target.closest?.('button, [role="button"]');
+      if (b && !b.disabled) playClickSfx();
+    };
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, [started, fightId]);
 
   const toast = useCallback((text, kind = 'info') => {
     const id = ++toastId.current;
@@ -118,6 +129,10 @@ export default function App() {
         <div className="stage">
           <GameCanvas store={store} poster={poster.small} act={act} onCook={openCooking} onFight={openFight} onPoster={() => setModal('gallery')} />
           <Effects store={store} toast={toast} />
+          <button className="pc-btn" onClick={() => setModal('pc')} aria-label="メニュー">
+            <PcIcon />
+            <span>メニュー</span>
+          </button>
         </div>
         <TaskPanel state={state} act={act} onCook={openCooking} onFight={openFight} />
       </div>
@@ -125,6 +140,7 @@ export default function App() {
       {fightId != null && <FightPanel state={state} customerId={fightId} act={act} onClose={() => setFightId(null)} toast={toast} />}
 
       {cookingId != null && <CookingPanel state={state} orderId={cookingId} act={act} onClose={() => setCookingId(null)} toast={toast} />}
+      {modal === 'pc' && <PcMenu state={state} act={act} onClose={() => setModal(null)} />}
       {modal === 'shop' && <ShopPanel state={state} act={act} onClose={() => setModal(null)} />}
       {modal === 'recipes' && <RecipeBook state={state} onClose={() => setModal(null)} />}
       {modal === 'gallery' && <Gallery poster={poster.large} onClose={() => setModal(null)} />}
@@ -138,6 +154,7 @@ export default function App() {
           <div key={t.id} className={`toast toast-${t.kind}`}>{t.text}</div>
         ))}
       </div>
+      {DevPanel && <Suspense fallback={null}><DevPanel state={state} act={act} /></Suspense>}
       <RotateHint />
     </div>
   );

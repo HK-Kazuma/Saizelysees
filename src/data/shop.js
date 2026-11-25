@@ -8,15 +8,17 @@ export const EQUIPMENT = [
   { id: 'oven', name: 'オーブン', desc: 'ドリア・肉料理・パンを焼く', lv: 1, price: 0, owned: true, upgrade: [1000, 2500, 5500], x: 4 },
   { id: 'salad', name: 'サラダ台', desc: 'サラダ類が作れるようになる', lv: 2, price: 1200, upgrade: [600, 1500, 3500], x: 5 },
   { id: 'pizza', name: 'ピザ窯', desc: 'ピザが作れるようになる', lv: 4, price: 3000, upgrade: [1500, 3500, 7000], x: 6 },
-  { id: 'drink', name: 'ドリンクバー', desc: '会計ごとに +¥100（強化で増額）', lv: 3, price: 2500, upgrade: [2000, 4000, 8000], x: -1 },
+  { id: 'drink', name: 'ドリンクバー', desc: 'お客さんがドリンクバーを頼める（1人 +¥100）。ドリンクは減るので交換が必要。強化で料金UP・容量UP', lv: 3, price: 2500, upgrade: [2000, 4000, 8000], x: -1 },
   // 拡張タブで購入。会計を自動で行う（強化なし）
   { id: 'selfreg', name: '無人レジ', desc: 'お客さんが自分で会計する。店員がいなくても会計が進む', lv: 10, price: 50000, upgrade: [], x: -1 },
+  // 拡張タブで購入。お客さんがスマホで注文するので、店員が注文を聞く必要がなくなる（強化なし）
+  { id: 'qrorder', name: 'QRコード注文', desc: 'お客さんがスマホでQRを読み取って注文する。店員が注文を聞く必要がなくなる', lv: 15, price: 50000, upgrade: [], x: -1 },
 ];
 export const EQUIP_MAP = Object.fromEntries(EQUIPMENT.map((e) => [e.id, e]));
 
 export const STAFF = [
   { id: 'kitchen', name: 'キッチンスタッフ', desc: '注文を自動で調理する', lv: 2, price: [1500, 4000, 9000, 16000, 28000] },
-  { id: 'hall', name: 'ホールスタッフ', desc: '注文取り・配膳・会計を自動で行う', lv: 2, price: [1200, 3500, 8000, 14000, 24000] },
+  { id: 'hall', name: 'ホールスタッフ', desc: '注文取り・配膳・会計を自動で行う', lv: 2, price: [1200, 3500, 8000, 14000, 24000, 38000, 55000] },
 ];
 
 // appeal: 店の魅力。来店ペースと待てる時間が伸びる
@@ -40,5 +42,11 @@ export const STORE_SIZES = [
   { cols: 16, rows: 12, price: 36000, lv: 10, staffMax: 4, name: '繁華街のお店' },
   { cols: 18, rows: 14, price: 70000, lv: 12, staffMax: 5, name: '旗艦店' },
 ];
+
+// レベル20になると、ホールスタッフの上限が店舗サイズの上限より2人増える
+export const HALL_BONUS_LV = 20;
+export const HALL_BONUS = 2;
+export const staffLimit = (state, role) =>
+  STORE_SIZES[state.sizeIdx].staffMax + (role === 'hall' && state.level >= HALL_BONUS_LV ? HALL_BONUS : 0);
 
 export const TABLE_PRICE = (owned) => 600 + owned * 500;

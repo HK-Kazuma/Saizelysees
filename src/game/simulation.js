@@ -6,16 +6,22 @@
 //   → wantPay → toPay → atRegister(会計待ち) → leaving
 // 店員の仕事（task）：
 //   take(注文を聞く) / serve(配膳: pickup→deliver) / checkout(会計) / cook(調理: station→place)
+//   bus(片付け: pickup→wash。食べ終わった席の食器を洗い場へ)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { makeReport, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
+import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
-const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
+export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
 const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーである確率
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const DRINK_RATE = 0.6; // ドリンクバーを頼むお客さんの割合
+const DRINK_FILL_TIME = 1.6; // ドリンクを注ぐ時間(秒)
+const DRINK_SWAP_TIME = 3; // ドリンク交換にかかる時間(秒)
+const QR_ORDER_TIME = 3; // QR注文のスマホ操作時間(秒)
 const newId = (state) => state.nextId++;
 
 // ───────── 移動 ─────────
@@ -82,7 +88,7 @@ export const waitPatience = (state, r) => 55 + appeal(state) * 2 + r.steps.lengt
 
 function spawnCustomer(state) {
   const L = state.layout;
-  const free = L.seats.filter((s) => !state.seatOcc[s.id]);
+  const free = L.seats.filter((s) => !state.seatOcc[s.id] && !state.dirty[s.id]); // 食器が残った席には座れない
   const menu = availableRecipes(state);
   if (!free.length || !menu.length) return false;
   const seat = pick(free);
@@ -106,6 +112,7 @@ function spawnCustomer(state) {
     c.complainer = true;
     c.look = { ...c.look, shirt: 6, hair: 2, long: false };
   }
+  c.wantsDrink = !!state.equipment.drink.owned && !c.complainer && Math.random() < DRINK_RATE;
   state.seatOcc[seat.id] = c.id;
   setDest(state, c, seat);
   state.customers.push(c);
@@ -116,6 +123,8 @@ function spawnCustomer(state) {
 function takeHalfCoins(state) {
   const lost = Math.floor(state.coins / 2);
   state.coins -= lost;
+  const ex = (state.daily.expense ||= {});
+  ex.penalty = (ex.penalty || 0) + lost;
   return lost;
 }
 
@@ -128,6 +137,11 @@ export function resolveComplainer(state, c, won) {
   if (won) state.stats.defeated = (state.stats.defeated || 0) + 1;
   else takeHalfCoins(state);
   exitPath(state, c);
+}
+
+// 食べ終わった席に食器を残す（片付けるまで次のお客さんは座れない）
+function leaveDishes(state, c) {
+  if (c.seatId && c.dish) state.dirty[c.seatId] = { recipeId: c.recipeId, claimedBy: null };
 }
 
 function freeSeat(state, c) {
@@ -170,6 +184,7 @@ function sendHomeCustomers(state) {
       c.happy = true;
     }
     removeOrderOf(state, c);
+    leaveDishes(state, c);
     freeSeat(state, c);
     c.dish = null;
     c.state = 'leaving';
@@ -187,6 +202,70 @@ function updatePayQueue(state, c) {
   if (c.qi !== qi) {
     c.qi = qi;
     setDest(state, c, L.payQueue[qi]);
+  }
+}
+
+// 注文を通す（店員が聞いたとき／お客さんがスマホで注文したとき）
+function placeOrder(state, c) {
+  const r = RECIPE_MAP[c.recipeId];
+  state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
+  c.state = 'waiting';
+  c.claimedBy = null;
+  c.patience = c.maxPatience = waitPatience(state, r);
+  state.events.push({ type: 'order', recipeId: c.recipeId });
+  // ドリンクバー付きなら、注文のあと自分で取りに行く
+  if (c.wantsDrink && !c.hasDrink && state.equipment.drink.owned) {
+    c.trip = 'go';
+    c.sitting = false;
+    setDest(state, c, state.layout.drinkSpot);
+  }
+}
+
+// ドリンクバーへ行って、注いで、席に戻る。ドリンクが切れていたら交換されるまで待つ（待ちすぎると怒って帰る）
+function startFill(state, c) {
+  if (state.drinkStock > 0) {
+    c.trip = 'fill';
+    c.tripTimer = DRINK_FILL_TIME;
+  } else if (c.trip !== 'wait') {
+    c.trip = 'wait';
+    c.drinkPatience = callPatience(state);
+  }
+}
+
+function updateDrinkTrip(state, c, dt) {
+  const L = state.layout;
+  switch (c.trip) {
+    case 'go':
+      if (move(c, dt, SPEED.customer)) {
+        faceToward(c, L.drink);
+        startFill(state, c);
+      }
+      break;
+    case 'wait':
+      if (state.drinkStock > 0) startFill(state, c);
+      break;
+    case 'fill':
+      c.tripTimer -= dt;
+      if (c.tripTimer <= 0) {
+        if (state.drinkStock > 0) {
+          state.drinkStock--;
+          if (state.drinkStock === 0) state.events.push({ type: 'penalty', text: 'ドリンクバーのドリンクが切れました！交換してください' });
+          c.hasDrink = true;
+          c.trip = 'back';
+          setDest(state, c, L.seatMap[c.seatId]);
+        } else startFill(state, c);
+      }
+      break;
+    case 'back':
+      if (move(c, dt, SPEED.customer)) {
+        c.trip = null;
+        c.sitting = true;
+        c.faceLeft = c.seatId.endsWith('_R');
+        c.faceBack = false;
+      }
+      break;
+    default:
+      break;
   }
 }
 
@@ -211,16 +290,39 @@ function updateCustomer(state, c, dt) {
       }
       break;
     case 'calling':
+      // QRコード注文：お客さんが自分のスマホで注文する（スマホ操作に3秒かかる）
+      if (state.equipment.qrorder?.owned && !c.complainer) {
+        c.qrTimer ??= QR_ORDER_TIME;
+        c.qrTimer -= dt;
+        if (c.qrTimer <= 0) placeOrder(state, c);
+        break;
+      }
+    // falls through
     case 'waiting': {
+      if (c.trip) {
+        updateDrinkTrip(state, c, dt);
+        if (c.trip === 'wait') {
+          // ドリンクが切れていて困っている。放置すると怒って帰る
+          c.drinkPatience -= dt;
+          if (c.drinkPatience <= 0) leaveAngry(state, c);
+          break;
+        }
+      }
       // 店員が向かっている間は待ち時間の減りをゆっくりにする
       const slow = c.claimedBy || state.orders.some((o) => o.customerId === c.id && o.status !== 'queued') ? 0.5 : 1;
       c.patience -= dt * slow;
+      // クレーマーはゲージが半分を切ると怒りだす
+      if (c.complainer && !c.enraged && c.patience > 0 && c.patience <= c.maxPatience / 2) {
+        c.enraged = true;
+        state.events.push({ type: 'rage', x: c.x, y: c.y, text: 'プンプン！' });
+      }
       if (c.patience <= 0) leaveAngry(state, c);
       break;
     }
     case 'eating':
       c.timer -= dt;
       if (c.timer <= 0) {
+        leaveDishes(state, c);
         c.dish = null;
         c.state = 'wantPay';
       }
@@ -249,8 +351,8 @@ function updateCustomer(state, c, dt) {
       }
       break;
     case 'atRegister':
-      // 無人レジがあれば、お客さんが自分で会計して帰る（店員が担当中なら任せる）
-      if (state.equipment.selfreg?.owned && !c.claimedBy) {
+      // 無人レジがあれば、お客さんが自分で会計して帰る（店員の予約があっても待たずに流す）
+      if (state.equipment.selfreg?.owned) {
         c.timer -= dt;
         if (c.timer <= 0) {
           pay(state, c);
@@ -284,7 +386,7 @@ function pay(state, c) {
   const r = RECIPE_MAP[c.recipeId];
   const q = c.quality ?? 2;
   const mult = QUALITY_MULT[q];
-  const drink = state.equipment.drink.owned ? 100 * state.equipment.drink.lv : 0;
+  const drink = c.hasDrink ? drinkFee(state) : 0; // ドリンクバーを頼んで飲んだ人だけ
   const amount = Math.round((r.price * mult) / 10) * 10 + drink;
   const xp = Math.round((r.price / 12) * mult) + 2;
   state.coins += amount;
@@ -359,6 +461,46 @@ function freePassSlot(state) {
   return null;
 }
 
+// ───────── ホールスタッフの能力 ─────────
+const skillLv = (state, w, id) => (w.role === 'hall' ? hallSkillOf(state, w.index)[id] : 1);
+const timeMult = (state, w, id) => skillTimeMult(skillLv(state, w, id)); // 作業時間の倍率
+const carryCap = (state, w, id) => skillLv(state, w, id); // 1回の往復で運べる数
+
+// 配膳（複数まとめて運ぶ）：消えた注文を外し、次に向かう注文(orderId)と手に持っている数を合わせる
+function serveSync(state, w, t) {
+  t.orderIds ||= [t.orderId];
+  t.carried ||= [];
+  t.orderIds = t.orderIds.filter((id) => {
+    const o = findOrder(state, id);
+    return !!o && !!findCustomer(state, o.customerId);
+  });
+  t.carried = t.carried.filter((id) => t.orderIds.includes(id));
+  const pending = t.orderIds.filter((id) => !t.carried.includes(id));
+  if (t.step === 'pickup' && pending.length) t.orderId = pending[0];
+  else if (t.carried.length) {
+    t.step = 'deliver';
+    t.orderId = t.carried[0];
+  } else return false;
+  w.carrying = t.carried.length ? findOrder(state, t.carried[0]).recipeId : null;
+  w.carryCount = t.carried.length;
+  return true;
+}
+
+// 片付け（複数の席をまわる）：まだ片付けていない席(seatIds)の先頭へ。全部持ったら洗い場へ
+function busSync(state, w, t) {
+  t.seatIds ||= [t.seatId];
+  t.done ||= 0;
+  if (t.step === 'pickup') {
+    t.seatIds = t.seatIds.filter((id) => state.dirty[id]?.claimedBy === w.id && state.layout.seatMap[id]);
+    if (t.seatIds.length) t.seatId = t.seatIds[0];
+    else if (t.done > 0) t.step = 'wash';
+    else return false;
+  }
+  w.carrying = t.done > 0 ? 'dishes' : null;
+  w.carryCount = t.done;
+  return true;
+}
+
 function taskTarget(state, task) {
   const L = state.layout;
   switch (task.type) {
@@ -368,6 +510,10 @@ function taskTarget(state, task) {
     }
     case 'checkout':
       return L.cashierSpot;
+    case 'drink':
+      return L.drinkSpot;
+    case 'bus':
+      return task.step === 'pickup' ? L.seatMap[task.seatId].access : L.sink.front;
     case 'serve': {
       const o = findOrder(state, task.orderId);
       if (task.step === 'pickup') return o.passSlot != null ? L.passSlots[o.passSlot].hall : L.hallIdle[0];
@@ -395,7 +541,12 @@ function taskValid(state, task) {
       const c = findCustomer(state, task.customerId);
       return !!c && (c.state === 'atRegister' || c.state === 'toPay');
     }
+    case 'drink':
+      return !!state.equipment.drink.owned && state.drinkStock <= 0;
+    case 'bus':
+      return task.step === 'wash' || (task.done || 0) > 0 || (task.seatIds || [task.seatId]).some((id) => !!state.dirty[id] && !!state.layout.seatMap[id]);
     case 'serve':
+      return (task.orderIds || [task.orderId]).some((id) => !!findOrder(state, id) && !!findCustomer(state, findOrder(state, id).customerId));
     case 'cook':
       return !!findOrder(state, task.orderId) && !!findCustomer(state, findOrder(state, task.orderId).customerId);
     default:
@@ -404,7 +555,25 @@ function taskValid(state, task) {
 }
 
 function releaseClaim(state, w, task) {
-  if (task.type === 'take' || task.type === 'checkout') {
+  if (task.type === 'drink') {
+    if (state.drinkClaim === w.id) state.drinkClaim = null;
+  } else if (task.type === 'bus') {
+    for (const id of task.seatIds || [task.seatId]) {
+      const d = state.dirty[id];
+      if (d && d.claimedBy === w.id) d.claimedBy = null;
+    }
+  } else if (task.type === 'serve') {
+    // 運んでいる途中の料理はパス台に戻す
+    for (const id of task.orderIds || [task.orderId]) {
+      const o = findOrder(state, id);
+      if (!o || o.claimedBy !== w.id) continue;
+      o.claimedBy = null;
+      if (o.status === 'carrying') {
+        o.status = 'ready';
+        o.passSlot = freePassSlot(state);
+      }
+    }
+  } else if (task.type === 'take' || task.type === 'checkout') {
     const c = findCustomer(state, task.customerId);
     if (c && c.claimedBy === w.id) c.claimedBy = null;
   } else {
@@ -430,12 +599,16 @@ function abortTask(state, w) {
   w.task = null;
   w.phase = null;
   w.carrying = null;
+  w.carryCount = 0;
 }
 
 function actTime(state, w) {
   const t = w.task;
-  if (t.type === 'take') return 0.8;
-  if (t.type === 'checkout') return 0.9;
+  // ホールスタッフは能力レベルに応じて速くなる
+  if (t.type === 'take') return 0.8 * timeMult(state, w, 'take');
+  if (t.type === 'checkout') return 0.9 * timeMult(state, w, 'checkout');
+  if (t.type === 'drink') return DRINK_SWAP_TIME * timeMult(state, w, 'drink');
+  if (t.type === 'bus') return t.step === 'pickup' ? 0.8 : 0.6;
   if (t.type === 'serve') return t.step === 'pickup' ? 0.3 : 0.4;
   if (t.type === 'cook') {
     if (t.step === 'place') return 0.3;
@@ -450,12 +623,7 @@ function completeAct(state, w) {
   const L = state.layout;
   if (t.type === 'take') {
     const c = findCustomer(state, t.customerId);
-    const r = RECIPE_MAP[c.recipeId];
-    state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
-    c.state = 'waiting';
-    c.claimedBy = null;
-    c.patience = c.maxPatience = waitPatience(state, r);
-    state.events.push({ type: 'order', recipeId: c.recipeId });
+    placeOrder(state, c);
     w.task = null;
   } else if (t.type === 'checkout') {
     const c = findCustomer(state, t.customerId);
@@ -465,24 +633,48 @@ function completeAct(state, w) {
     c.claimedBy = null;
     exitPath(state, c);
     w.task = null;
+  } else if (t.type === 'drink') {
+    state.drinkStock = drinkCap(state);
+    state.drinkClaim = null;
+    w.task = null;
+    state.events.push({ type: 'purchase', text: 'ドリンクを交換しました' });
+  } else if (t.type === 'bus') {
+    if (t.step === 'pickup') {
+      delete state.dirty[t.seatId]; // 食器を持ち上げた時点で席が空く
+      t.done++;
+      t.seatIds = t.seatIds.filter((id) => id !== t.seatId);
+      busSync(state, w, t); // まだ担当の席があれば次の席へ、なければ洗い場へ
+      w.phase = 'walk';
+      setDest(state, w, taskTarget(state, t));
+      return;
+    }
+    w.carrying = null;
+    w.carryCount = 0;
+    w.task = null;
   } else if (t.type === 'serve') {
     const o = findOrder(state, t.orderId);
     if (t.step === 'pickup') {
       o.status = 'carrying';
       o.passSlot = null;
-      w.carrying = o.recipeId;
-      t.step = 'deliver';
+      t.carried.push(o.id);
+    } else {
+      const c = findCustomer(state, o.customerId);
+      c.state = 'eating';
+      c.timer = rand(6, 9);
+      c.dish = o.recipeId;
+      c.quality = o.quality;
+      state.orders = state.orders.filter((x) => x !== o);
+      t.orderIds = t.orderIds.filter((id) => id !== o.id);
+      t.carried = t.carried.filter((id) => id !== o.id);
+    }
+    // まだ取りに行く料理・届ける料理があれば続ける
+    if (serveSync(state, w, t)) {
       w.phase = 'walk';
       setDest(state, w, taskTarget(state, t));
       return;
     }
-    const c = findCustomer(state, o.customerId);
-    c.state = 'eating';
-    c.timer = rand(6, 9);
-    c.dish = o.recipeId;
-    c.quality = o.quality;
-    state.orders = state.orders.filter((x) => x !== o);
     w.carrying = null;
+    w.carryCount = 0;
     w.task = null;
   } else if (t.type === 'cook') {
     const o = findOrder(state, t.orderId);
@@ -517,30 +709,66 @@ function chooseAutoTask(state, w) {
     o.claimedBy = w.id;
     return { type: 'cook', orderId: o.id, step: 'station' };
   }
-  // ホール：会計 → 配膳 → 注文取り の優先順
-  // 無人レジがあるときは会計をお客さんに任せる
-  const payer = state.equipment.selfreg?.owned ? null : state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
-  if (payer) {
-    payer.claimedBy = w.id;
-    return { type: 'checkout', customerId: payer.id };
-  }
-  const ready = state.orders.find((o) => o.status === 'ready' && !o.claimedBy);
-  if (ready) {
-    ready.claimedBy = w.id;
-    return { type: 'serve', orderId: ready.id, step: 'pickup' };
-  }
-  const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
-  if (caller) {
-    caller.claimedBy = w.id;
-    return { type: 'take', customerId: caller.id };
+  // ホール：その人ごとに従業員画面で決めた優先順に、オンになっている業務から最初に見つかったものを取る
+  for (const t of hallPrefOf(state, w.index)) {
+    if (!t.on) continue;
+    const task = findHallTask(state, w, t.id);
+    if (task) return task;
   }
   return null;
+}
+
+// ホールスタッフの業務1種類ぶん。仕事があれば予約(claim)して task を返す
+function findHallTask(state, w, id) {
+  switch (id) {
+    case 'checkout': {
+      // 無人レジがあるときは会計をお客さんに任せる
+      if (state.equipment.selfreg?.owned) return null;
+      const payer = state.customers.find((c) => (c.state === 'atRegister' || c.state === 'toPay') && !c.claimedBy);
+      if (!payer) return null;
+      payer.claimedBy = w.id;
+      return { type: 'checkout', customerId: payer.id };
+    }
+    case 'serve': {
+      // 配膳のレベルの数だけ、できた料理をまとめて運ぶ
+      const ready = state.orders
+        .filter((o) => o.status === 'ready' && !o.claimedBy && !findCustomer(state, o.customerId)?.trip)
+        .slice(0, carryCap(state, w, 'serve'));
+      if (!ready.length) return null;
+      ready.forEach((o) => (o.claimedBy = w.id));
+      return { type: 'serve', orderIds: ready.map((o) => o.id), carried: [], orderId: ready[0].id, step: 'pickup' };
+    }
+    case 'take': {
+      if (state.equipment.qrorder?.owned) return null;
+      const caller = state.customers.find((c) => c.state === 'calling' && !c.claimedBy && !c.complainer);
+      if (!caller) return null;
+      caller.claimedBy = w.id;
+      return { type: 'take', customerId: caller.id };
+    }
+    case 'drink': {
+      // ドリンクバーが切れていたら交換（お客さんが待っている）
+      if (!state.equipment.drink.owned || state.drinkStock > 0 || state.drinkClaim) return null;
+      state.drinkClaim = w.id;
+      return { type: 'drink' };
+    }
+    case 'bus': {
+      // 片付けのレベルの数だけ、食器の残った席をまとめてまわる
+      const seatIds = Object.keys(state.dirty)
+        .filter((sid) => !state.dirty[sid].claimedBy && !state.seatOcc[sid] && state.layout.seatMap[sid])
+        .slice(0, carryCap(state, w, 'bus'));
+      if (!seatIds.length) return null;
+      seatIds.forEach((sid) => (state.dirty[sid].claimedBy = w.id));
+      return { type: 'bus', seatIds, done: 0, seatId: seatIds[0], step: 'pickup' };
+    }
+    default:
+      return null;
+  }
 }
 
 function idleSpot(state, w) {
   const L = state.layout;
   if (w.role === 'manager') return state.clock < OPEN_MIN ? L.deskSeat : L.managerIdle; // 開店前は自分の机
-  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % 5];
+  return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle).length];
 }
 
 function updateWorker(state, w, dt) {
@@ -575,6 +803,18 @@ function updateWorker(state, w, dt) {
     return;
   }
   if (w.task && !taskValid(state, w.task)) abortTask(state, w);
+  // まとめて運ぶ配膳・片付け：途中でお客さんが帰った分を外し、向かう先が変わったら歩き直す
+  if (w.task && (w.task.type === 'serve' || w.task.type === 'bus')) {
+    const t = w.task;
+    const key = () => `${t.step}|${t.type === 'serve' ? t.orderId : t.seatId}`;
+    const before = key();
+    const ok = t.type === 'serve' ? serveSync(state, w, t) : busSync(state, w, t);
+    if (!ok) abortTask(state, w);
+    else if (key() !== before) {
+      w.phase = 'walk';
+      setDest(state, w, taskTarget(state, t));
+    }
+  }
 
   if (!w.task) {
     let next = null;
@@ -605,6 +845,11 @@ function updateWorker(state, w, dt) {
           w.faceBack = true;
         } else if (t.type === 'checkout') {
           faceToward(w, state.layout.register);
+        } else if (t.type === 'drink') {
+          faceToward(w, state.layout.drink);
+        } else if (t.type === 'bus') {
+          if (t.step === 'pickup') faceToward(w, state.layout.seatMap[t.seatId]);
+          else w.faceBack = true;
         }
       }
     } else if (w.phase === 'act') {
@@ -644,7 +889,9 @@ export function rebuildLayout(state) {
       c.state = 'toPay';
       c.qi = 0;
       setDest(state, c, L.paySpot);
-    } else if (c.state === 'leaving') exitPath(state, c);
+    } else if (c.state === 'waiting' && c.trip === 'go') setDest(state, c, L.drinkSpot);
+    else if (c.state === 'waiting' && c.trip === 'back') setDest(state, c, L.seatMap[c.seatId]);
+    else if (c.state === 'leaving') exitPath(state, c);
   }
   for (const w of state.workers) {
     if (w.shift && w.shift !== 'on') continue;
@@ -706,7 +953,8 @@ function step(state, dt) {
 }
 
 export function tick(state, realDt) {
-  if (state.report) return; // レポート表示中は時間が止まる
+  // レポート表示中・メニューを開いている間・クレーマーと対決している間は時間が止まる
+  if (state.report || state.paused || state.customers.some((c) => c.state === 'fighting')) return;
   let dt = Math.min(realDt, 0.1) * state.speed;
   // 2倍速でも1ステップが大きくなりすぎないように分割する
   while (dt > 0 && !state.report) { // レポートが出たら、そのフレームの残りも進めない

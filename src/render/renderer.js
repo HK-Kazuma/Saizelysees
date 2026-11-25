@@ -471,7 +471,9 @@ export class Renderer {
     }
     // 設備のない厨房の壁際は作業台
     const eqXs = new Set(L.equipment.map((e) => e.x));
+    eqXs.add(L.sink.x); // 洗い場がある場所は作業台を置かない
     for (let x = 0; x < L.cols; x++) if (!eqXs.has(x) && x !== L.lane) add(x, () => this.drawPrepTable(g, x));
+    add(L.sink.x + 0.01, () => this.drawSink(g, L.sink));
     // カウンター（1タイルずつ）
     for (let x = 0; x < L.cols; x++) if (x !== L.lane) add(x + 2, () => this.drawCounter(g, state, x, time));
     // レジ
@@ -946,7 +948,7 @@ export class Renderer {
     const a = P(d.x + 0.1, d.y + 0.9, 18), b = P(d.x + 0.9, d.y + 0.9, 18);
     line(g, a.x, a.y, b.x - 1, b.y, C.white);
     const p = P(d.x + 0.5, d.y + 0.5, 26);
-    const n = 1 + (state.equipment.drink.lv || 1);
+    const n = state.drinkStock > 0 ? 1 + (state.equipment.drink.lv || 1) : 0; // 切れたらボトルが消える
     for (let i = 0; i < n; i++) {
       g.fillStyle = ['#cfe8f0', '#f2a03a', '#8a3a2a', '#6ab84a'][i % 4];
       g.fillRect(Math.round(p.x) - 6 + i * 4, Math.round(p.y) - 5, 3, 4);
@@ -975,14 +977,53 @@ export class Renderer {
     g.fillRect(Math.round(sp.x) - 1, Math.round(sp.y) - 4, 2, 4);
     g.fillStyle = C.green;
     g.fillRect(Math.round(sp.x) + 2, Math.round(sp.y) - 5, 2, 5);
-    // 食事中の料理
+    // 食事中の料理 / 食べ終わって残った食器
     for (const s of t.seats) {
-      const c = seatedBy[s.id];
-      if (!c || !c.dish) continue;
       const left = s.id.endsWith('_L');
       const p = P(t.x + (left ? 0.3 : 0.7), t.y + 0.55, 13);
-      g.drawImage(getDishSprite(RECIPE_MAP[c.dish]), Math.round(p.x) - 6, Math.round(p.y) - 7);
+      const c = seatedBy[s.id];
+      if (c && c.hasDrink) this.drawCup(g, Math.round(p.x) + (left ? -9 : 7), Math.round(p.y) - 4);
+      if (c && c.dish) g.drawImage(getDishSprite(RECIPE_MAP[c.dish]), Math.round(p.x) - 6, Math.round(p.y) - 7);
+      else if (state.dirty[s.id]) this.drawDirtyDishes(g, Math.round(p.x) - 5, Math.round(p.y) - 2);
     }
+  }
+
+  // ドリンクの入ったコップ（左上が (x, y)）
+  drawCup(g, x, y) {
+    g.fillStyle = '#cfe8f0';
+    g.fillRect(x, y, 3, 4);
+    g.fillStyle = '#f2a03a';
+    g.fillRect(x, y + 1, 3, 3);
+    g.fillStyle = '#ffffff';
+    g.fillRect(x, y, 1, 4);
+  }
+
+  // 空のお皿とコップ（左上が (x, y)）
+  drawDirtyDishes(g, x, y) {
+    g.fillStyle = '#b8b0a4'; // お皿の影
+    g.fillRect(x + 1, y + 3, 8, 1);
+    g.fillStyle = '#fbf7ee';
+    g.fillRect(x, y + 1, 9, 2);
+    g.fillRect(x + 1, y, 7, 1);
+    g.fillStyle = '#c8553a'; // ソースの跡
+    g.fillRect(x + 2, y + 1, 3, 1);
+    g.fillStyle = '#cfe8f0'; // コップ
+    g.fillRect(x + 8, y - 3, 3, 4);
+    g.fillStyle = '#e8f6fa';
+    g.fillRect(x + 8, y - 3, 1, 3);
+  }
+
+  // 洗い場（シンク）
+  drawSink(g, s) {
+    const u = s.x + 0.04, v = 0.06, du = 0.92, dv = 0.86;
+    isoBox(g, u, v, du, dv, 0, 18, { top: C.steel, left: C.steelD, right: C.steelDD, hi: C.steelL });
+    fillPoly(g, [P(u + 0.12, v + 0.2, 18), P(u + 0.82, v + 0.2, 18), P(u + 0.82, v + 0.7, 18), P(u + 0.12, v + 0.7, 18)], '#6a8ea0');
+    fillPoly(g, [P(u + 0.18, v + 0.26, 18), P(u + 0.76, v + 0.26, 18), P(u + 0.76, v + 0.64, 18), P(u + 0.18, v + 0.64, 18)], '#a8d0e0');
+    // 蛇口
+    const f = P(u + 0.46, v + 0.1, 18);
+    g.fillStyle = C.steelDD;
+    g.fillRect(Math.round(f.x), Math.round(f.y) - 7, 2, 7);
+    g.fillRect(Math.round(f.x) - 3, Math.round(f.y) - 8, 5, 2);
   }
 
   drawSeat(g, s, side) {
@@ -1032,10 +1073,23 @@ export class Renderer {
     }
     // 作業中は少し揺れる
     if (ent.phase === 'act' && ent.kind === 'worker') y += Math.sin(time * 18) > 0 ? -1 : 0;
+    // 怒り爆発中のクレーマー：プルプル震えて、ぴょんと跳ねる＋頭に怒りマーク
+    if (ent.kind === 'customer' && ent.enraged && (ent.state === 'calling' || ent.state === 'waiting')) {
+      x += Math.sin(time * 50) > 0 ? 1 : -1;
+      y -= Math.max(0, Math.sin(time * 14)) > 0.6 ? 2 : 0;
+      const hx = x + (ent.faceLeft ? 1 : 8), hy = y - 1;
+      g.fillStyle = Math.sin(time * 16) > 0 ? '#e0402a' : '#ff8a6a';
+      g.fillRect(hx, hy + 1, 1, 1); g.fillRect(hx + 1, hy, 1, 3); g.fillRect(hx + 2, hy + 1, 1, 1);
+      g.fillRect(hx + 4, hy + 1, 1, 1); g.fillRect(hx + 3, hy, 1, 3); g.fillRect(hx + 2, hy + 2, 3, 1);
+    }
     g.drawImage(spr, x, y);
-    if (ent.carrying) {
+    if (ent.hasDrink && !ent.sitting && ent.kind === 'customer') this.drawCup(g, x + (ent.faceLeft ? -2 : 9), y + 12);
+    const stack = Math.min(Math.max(ent.carryCount || 1, 1), 3); // まとめて運ぶときは重ねて持つ（最大3段で表示）
+    if (ent.carrying === 'dishes') {
+      for (let i = 0; i < stack; i++) this.drawDirtyDishes(g, x + (ent.faceLeft ? -2 : 4), y + 13 - i * 3);
+    } else if (ent.carrying) {
       const d = getDishSprite(RECIPE_MAP[ent.carrying]);
-      g.drawImage(d, x + (ent.faceLeft ? -3 : 3), y + 12);
+      for (let i = 0; i < stack; i++) g.drawImage(d, x + (ent.faceLeft ? -3 : 3), y + 12 - i * 4);
     }
     g.globalAlpha = 1;
     if (ent.kind === 'worker' && ent.role === 'manager') {
@@ -1054,7 +1108,10 @@ export class Renderer {
     switch (c.state) {
       case 'thinking': sym = SYMBOLS.dots; break;
       case 'calling': sym = c.complainer ? SYMBOLS.anger : SYMBOLS.bang; break;
-      case 'waiting': dish = RECIPE_MAP[c.recipeId]; break;
+      case 'waiting':
+        if (c.trip === 'wait') sym = SYMBOLS.bang; // ドリンクが切れていて困っている
+        else dish = RECIPE_MAP[c.recipeId];
+        break;
       case 'eating': if (Math.sin(time * 3 + c.id) > 0.6) sym = SYMBOLS.note; break;
       case 'wantPay': case 'toPay': case 'atRegister': sym = SYMBOLS.yen; break;
       case 'leaving': sym = c.angry ? SYMBOLS.anger : c.happy ? SYMBOLS.heart : null; break;

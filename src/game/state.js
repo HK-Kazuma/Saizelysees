@@ -1,9 +1,11 @@
 // ゲーム状態の初期値・レベル曲線・解放判定・セーブ/ロード
 import { RECIPES } from '../data/recipes.js';
-import { EQUIPMENT, DECOR, STAFF, STORE_SIZES } from '../data/shop.js';
+import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from '../data/shop.js';
 import { buildLayout } from './layout.js';
+import { normalizeHallTasks, normalizeSkills } from '../data/staffTasks.js';
 
-const SAVE_KEY = 'saizelysees-save-v1';
+// 開発サーバーでは別のキーに保存する（プリセットで本番のセーブを壊さないため）
+const SAVE_KEY = import.meta.env.DEV ? 'saizelysees-save-v1-dev' : 'saizelysees-save-v1';
 export const MAX_LEVEL = 30;
 
 // ゲーム内の時計（単位は「分」）。倍速は実時間2秒 = ゲーム内10分（1秒 = 5分）、等倍はその半分（1秒 = 2.5分）
@@ -59,13 +61,27 @@ export function unlocksAt(level, state) {
       ...EQUIPMENT.filter((e) => e.lv === level && !state?.equipment[e.id]?.owned).map((e) => e.name),
       ...STAFF.filter((s) => s.lv === level).map((s) => s.name),
       ...DECOR.filter((d) => d.lv === level && !state?.decor[d.id]).map((d) => d.name),
+      ...(level === HALL_BONUS_LV ? [`ホールスタッフの上限 +${HALL_BONUS}人`] : []),
       ...STORE_SIZES.filter((s) => s.lv === level && s.price > 0).map((s) => `店舗拡張「${s.name}」`),
     ],
   };
 }
 
 // その日の集計（閉店後のレポート用）
-export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0 });
+export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0, expense: {} });
+
+// 出費の種類（店舗情報の出費タブ用）
+export const EXPENSE_CATS = [
+  { id: 'equip', name: '設備（設置・強化）' },
+  { id: 'staff', name: 'スタッフの雇用' },
+  { id: 'decor', name: '装飾' },
+  { id: 'expand', name: '店舗の拡張・テーブル' },
+  { id: 'penalty', name: 'クレーマー被害' },
+];
+// ドリンクバー：1人ぶんの料金と、交換までに出せるドリンクの数（強化で増える）
+export const drinkFee = (state) => 100 * (state.equipment.drink?.lv ?? 1);
+export const drinkCap = (state) => 8 + 4 * ((state.equipment.drink?.lv ?? 1) - 1);
+export const sumExpense = (e) => Object.values(e || {}).reduce((s, v) => s + v, 0);
 
 // 23:00に表示するレポート。売れた料理を多い順に並べる
 export function makeReport(state) {
@@ -73,7 +89,7 @@ export function makeReport(state) {
   const items = Object.entries(d.sold)
     .map(([id, v]) => ({ id, n: v.n, amount: v.amount }))
     .sort((a, b) => b.n - a.n || b.amount - a.amount);
-  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, coins: state.coins };
+  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins };
 }
 
 export function createInitialState() {
@@ -84,6 +100,7 @@ export function createInitialState() {
     day: 1,
     clock: OPEN_MIN,
     daily: emptyDaily(),
+    history: [], // 日ごとの記録 { day, sales, served, angry, expense }（店舗情報のグラフ用）
     report: null, // 閉店後のレポート（表示中は時間が止まる）
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     sizeIdx: 0,
@@ -100,6 +117,12 @@ export function createInitialState() {
     orders: [],
     seatOcc: {},
     eqBusy: {},
+    drinkStock: 0, // ドリンクバーに残っているドリンクの数（0で切れ）
+    drinkClaim: null, // 交換に向かっている店員
+    hallSkills: [], // ホールスタッフ1人ずつの能力レベル [index] = { take, serve, bus, checkout, drink }
+    hallPrefs: [], // ホールスタッフ1人ずつの業務の優先順 [index] = [{ id, on }]（従業員画面で変更）
+    paused: false, // メニュー表示中は true（時間が止まる）
+    dirty: {}, // 食器が残っている席 { seatId: { recipeId, claimedBy } }
     nextId: 1,
     events: [],
     layout: null,
@@ -108,7 +131,7 @@ export function createInitialState() {
   return state;
 }
 
-const PERSIST = ['day', 'clock', 'daily', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const PERSIST = ['day', 'clock', 'daily', 'history', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 
 export function saveGame(state) {
   try {
@@ -130,7 +153,15 @@ export function loadGame() {
         if (typeof data[k] === 'object' && !Array.isArray(data[k])) state[k] = { ...state[k], ...data[k] };
         else state[k] = data[k];
       }
+      // 以前の「全員共通」の設定は、いま雇っている全員に引き継ぐ
+      if (data.hallPrefs === undefined && data.hallTasks) {
+        state.hallPrefs = Array.from({ length: state.staff.hall }, () => normalizeHallTasks(data.hallTasks));
+      }
+      state.hallPrefs = Array.from(state.hallPrefs || [], (list) => normalizeHallTasks(list));
+      state.hallSkills = Array.from(state.hallSkills || [], (s) => normalizeSkills(s));
       state.layout = buildLayout(state);
+      // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
+      if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);
       // レポート表示中(23:00)にリロードしたときは、レポートをもう一度出す
       if (Math.round(state.clock) === FAST_START_MIN && state.daily.served + state.daily.angry > 0) state.report = makeReport(state);
     }
