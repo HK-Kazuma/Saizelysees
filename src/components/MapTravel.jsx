@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { STORES, STORE_MAP, TRANSFER_COST } from '../data/stores.js';
 import { loadJapan, buildBase, drawMap, project, fitZoom, clampCam, boxOf, worldToScreen, ZS } from '../render/japanmap.js';
 import { getCharSprite } from '../render/sprites.js';
+import StoreRecord from './StoreRecord.jsx';
 
 const MANAGER_LOOK = { hair: 1, shirt: 'manager', pants: 0, skin: 0, long: false };
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2);
@@ -292,7 +293,8 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
         <b>{mode === 'transfer' ? '人事異動' : '地図'}</b>
         <span>🔒 灰色の地域は未解放（見るだけ）</span>
       </div>
-      {sel && phase === 'free' && (
+      {sel && phase === 'free' && selIdx <= curIdx && <StoreRecord state={state} id={sel.id} onClose={() => setSelected(null)} />}
+      {sel && phase === 'free' && selIdx > curIdx && (
         <div className="map-card">
           <b>{sel.city}店</b>
           <span>{sel.pref}・{selNote}</span>
@@ -302,7 +304,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
         {phase === 'intro' && <span className="map-msg">画面をタップで地図へ…</span>}
         {phase === 'free' && mode === 'view' && (
           <>
-            <span className="map-msg">ドラッグで移動／ピンチ・ホイールで拡大縮小</span>
+            <span className="map-msg">ドラッグで移動／ピンチ・ホイールで拡大縮小／店のピンをタップで記録</span>
             <button className="hud-btn primary" onClick={onCancel}>とじる</button>
           </>
         )}
@@ -310,7 +312,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
           <>
             <span className="map-msg">
               <b>次の赴任先：{toStore.city}店（{toStore.pref}）</b>
-              <small>後任店長の採用費 ¥{TRANSFER_COST.toLocaleString()}　／　ドラッグで動かして、ほかの地域も見られます</small>
+              <small>後任店長の採用費 ¥{TRANSFER_COST.toLocaleString()}　／　ドラッグで動かして、ほかの地域も見られます（過去の店のピンをタップすると記録が見られます）</small>
             </span>
             <button className="hud-btn" onClick={onCancel}>もどる</button>
             <button className="hud-btn primary" disabled={!canPay} onClick={depart}>{toStore.city}へ出発</button>

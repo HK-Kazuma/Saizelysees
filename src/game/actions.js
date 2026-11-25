@@ -25,6 +25,7 @@ function closeReport(state) {
   if (r && !state.history.some((h) => h.day === r.day)) {
     state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {}, wait: r.wait, util: r.util, staffMin: r.staffMin });
     state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
+    state.stats.bestDay = Math.max(state.stats.bestDay || 0, r.sales); // この店の最高売上（地図の記録で見せる）
     compactHistory(state);
     const st = state.stage;
     st.sales += r.sales;
