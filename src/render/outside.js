@@ -4,6 +4,7 @@
 import { P, fillPoly, isoBox, hash } from './pixel.js';
 import { STORE_SIZES } from '../data/shop.js';
 import { BACK_ROWS } from '../game/layout.js';
+import { getTheme } from './themes.js';
 
 // 土地は最大サイズの店が建つ広さで固定。道路はその外周をぐるっと一周する。
 // 店が拡張されても道路・街路樹は動かず、店が空き地に広がっていく。
@@ -15,14 +16,6 @@ export const WORLD = {
 // 画面に収める外側の余白（タイル数）= 歩道1 + 道路2 + 外側の歩道1
 export const OUT_M = 4;
 const R = 26; // 通りを描く範囲（建物から何タイル先まで）
-
-const K = {
-  // クリスマス：一面の雪
-  grassA: '#f3f7fc', grassB: '#e8eff8', tuft: '#c4d3e6', tuftL: '#ffffff', tip: '#7fb35a',
-  swA: '#e9eff7', swB: '#dfe8f3', swLine: '#cbd7e5', curb: '#fbfdff',
-  road: '#4b4e57', roadB: '#454850', speck: '#5d606a', yellow: '#e6c85a', white: '#e8ecf0',
-  snow: '#f6f9fd', snowD: '#dbe5f1', slush: '#8a909c',
-};
 
 // タイルの種類。通りは 歩道('S') → 道路('R') → 外側の歩道('O') → 芝生('G')
 function band(n) {
@@ -84,6 +77,8 @@ function speckle(g, x, y, n, colors, seed) {
 
 // ───────────────────────── 地面 ─────────────────────────
 export function drawGround(g, L, cw, ch) {
+  const th = getTheme();
+  const K = th.ground;
   for (let y = WORLD.yMin - R; y < WORLD.rows + R; y++) {
     for (let x = -R; x < WORLD.cols + R; x++) {
       const t = tileType(L, x, y);
@@ -93,30 +88,32 @@ export function drawGround(g, L, cw, ch) {
       if (t === 'G') {
         quad(g, x, y, x + 1, y + 1, alt ? K.grassA : K.grassB);
         const h = hash(x, y, 7);
-        if (h < 0.7) speckle(g, x, y, 4, [K.tuft, K.tuftL, K.tuftL], x * 131 + y * 17);
-        if (h > 0.93) speckle(g, x, y, 1, [K.tip], x * 31 + y * 7); // 雪の下から顔を出す草
+        if (h < th.tuft.p) speckle(g, x, y, th.tuft.n, th.tuft.mix ? [K.tuft, K.tuftL, K.tuftL] : [K.tuft, K.tuftL], x * 131 + y * 17);
+        if (th.snow && h > 0.93) speckle(g, x, y, 1, [K.tip], x * 31 + y * 7); // 雪の下から顔を出す草
       } else if (t === 'S' || t === 'O') {
         quad(g, x, y, x + 1, y + 1, alt ? K.swA : K.swB);
-        // 敷石の目地（雪でうっすら）
-        quad(g, x, y, x + 1, y + 0.04, K.swLine);
-        quad(g, x, y, x + 0.04, y + 1, K.swLine);
-        speckle(g, x, y, 3, [K.tuftL, K.tuft], x * 53 + y * 11);
+        // 敷石の目地（雪ならうっすら）
+        quad(g, x, y, x + 1, y + th.joint, K.swLine);
+        quad(g, x, y, x + th.joint, y + 1, K.swLine);
+        if (th.snow) speckle(g, x, y, 3, [K.tuftL, K.tuft], x * 53 + y * 11);
       } else {
         quad(g, x, y, x + 1, y + 1, alt ? K.road : K.roadB);
         speckle(g, x, y, 4, [K.speck, K.roadB], x * 71 + y * 29);
-        // 道路の雪：縁にたまり、ところどころ白く積もる（車の通るところは黒っぽいまま）
-        const edge = (dx, dy) => { const n = tileType(L, x + dx, y + dy); return n && n !== 'R'; };
-        const w = 0.2 + hash(x, y, 11) * 0.12;
-        if (edge(0, 1)) quad(g, x, y + 1 - w, x + 1, y + 1, K.snow);
-        if (edge(0, -1)) quad(g, x, y, x + 1, y + w, K.snow);
-        if (edge(1, 0)) quad(g, x + 1 - w, y, x + 1, y + 1, K.snow);
-        if (edge(-1, 0)) quad(g, x, y, x + w, y + 1, K.snow);
-        const hp = hash(x, y, 13);
-        if (hp < 0.4) {
-          const pu = x + hash(x, y, 14) * 0.5, pv = y + hash(x, y, 15) * 0.5;
-          quad(g, pu, pv, pu + 0.3 + hp * 0.5, pv + 0.25 + hp * 0.4, hp < 0.2 ? K.snow : K.snowD);
+        if (th.snow) {
+          // 道路の雪：縁にたまり、ところどころ白く積もる（車の通るところは黒っぽいまま）
+          const edge = (dx, dy) => { const n = tileType(L, x + dx, y + dy); return n && n !== 'R'; };
+          const w = 0.2 + hash(x, y, 11) * 0.12;
+          if (edge(0, 1)) quad(g, x, y + 1 - w, x + 1, y + 1, K.snow);
+          if (edge(0, -1)) quad(g, x, y, x + 1, y + w, K.snow);
+          if (edge(1, 0)) quad(g, x + 1 - w, y, x + 1, y + 1, K.snow);
+          if (edge(-1, 0)) quad(g, x, y, x + w, y + 1, K.snow);
+          const hp = hash(x, y, 13);
+          if (hp < 0.4) {
+            const pu = x + hash(x, y, 14) * 0.5, pv = y + hash(x, y, 15) * 0.5;
+            quad(g, pu, pv, pu + 0.3 + hp * 0.5, pv + 0.25 + hp * 0.4, hp < 0.2 ? K.snow : K.snowD);
+          }
+          speckle(g, x, y, 5, [K.snow, K.snowD, K.slush], x * 37 + y * 19);
         }
-        speckle(g, x, y, 5, [K.snow, K.snowD, K.slush], x * 37 + y * 19);
       }
     }
   }
@@ -161,7 +158,7 @@ export function drawGround(g, L, cw, ch) {
 }
 
 // ───────────────────────── 樹木 ─────────────────────────
-function blob(g, cx, cy, rx, ry, pal, snowy = true) {
+function blob(g, cx, cy, rx, ry, pal, snowy = getTheme().snow) {
   for (let dy = -ry; dy <= ry; dy++) {
     for (let dx = -rx; dx <= rx; dx++) {
       const d = (dx / rx) ** 2 + (dy / ry) ** 2;
@@ -189,7 +186,7 @@ const LEAF = [
 const PINE = ['#4a9a52', '#337a42', '#256034', '#1a4626'];
 
 function shadow(g, bx, by, rx) {
-  g.fillStyle = 'rgba(70,95,140,0.28)';
+  g.fillStyle = getTheme().shadow;
   for (let dy = -2; dy <= 2; dy++) {
     const w = Math.round(rx * Math.sqrt(1 - (dy / 3) ** 2));
     g.fillRect(bx - w + 3, by + dy, w * 2, 1);
@@ -197,6 +194,7 @@ function shadow(g, bx, by, rx) {
 }
 
 function drawTree(g, u, v, kind) {
+  const snow = getTheme().snow;
   const p = P(u, v);
   const bx = Math.round(p.x), by = Math.round(p.y);
   if (kind === 2) {
@@ -212,8 +210,8 @@ function drawTree(g, u, v, kind) {
           const s = -dx / w + hash(bx + dx, y0 - hgt + r, 9) * 0.4;
           let c = r > hgt - 3 ? PINE[3] : s > 0.2 ? PINE[0] : s > -0.3 ? PINE[1] : PINE[2];
           // 枝の上に雪（各段の上の方・縁が白い）
-          if (r < hgt - 4 && (r < 3 || (dx > -hw + 3 && s > -0.05 && hash(bx + dx, y0 + r, 21) < 0.55))) c = r < 2 ? '#ffffff' : '#e6eef8';
-          else if (r === hgt - 3 && hash(bx + dx, y0, 22) < 0.5) c = '#d4e2f2';
+          if (snow && r < hgt - 4 && (r < 3 || (dx > -hw + 3 && s > -0.05 && hash(bx + dx, y0 + r, 21) < 0.55))) c = r < 2 ? '#ffffff' : '#e6eef8';
+          else if (snow && r === hgt - 3 && hash(bx + dx, y0, 22) < 0.5) c = '#d4e2f2';
           g.fillStyle = c;
           g.fillRect(bx + dx, y0 - hgt + r + 1, 1, 1);
         }

@@ -9,6 +9,7 @@ import { STORE_SIZES } from '../data/shop.js';
 import { darkness, OPEN_MIN, CLOSE_MIN } from '../game/state.js';
 import { BACK_ROWS } from '../game/layout.js';
 import { view } from './view.js';
+import { getTheme } from './themes.js';
 import { OUT_M, WORLD, LAMP_H, lampSpots, treeLights, drawGround, drawOutside, setBgOrigin } from './outside.js';
 import logoUrl from '../assets/logo.png';
 
@@ -159,7 +160,8 @@ export class Renderer {
   buildBackground(state) {
     const L = state.layout;
     const eqKey = Object.entries(state.equipment).map(([k, v]) => `${k}${v.owned ? 1 : 0}`).join('');
-    const key = `${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}`;
+    const th = getTheme();
+    const key = `${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}|${th.id}`;
     if (key === this.bgKey) return;
     this.bgKey = key;
     const wb = this.worldBounds();
@@ -170,7 +172,7 @@ export class Renderer {
     this.bgOy = -wb.minY;
     setBgOrigin(this.bgOx, this.bgOy);
     const g = cv.getContext('2d');
-    g.fillStyle = '#eef3fa'; // 雪原
+    g.fillStyle = th.bg; // 地面の下地（芝生・雪原など）
     g.fillRect(0, 0, cv.width, cv.height);
     g.save();
     g.translate(this.bgOx, this.bgOy);
@@ -707,7 +709,7 @@ export class Renderer {
       g.fillStyle = hg;
       g.fillRect(Math.round(h.x) - 9, Math.round(h.y) - 9, 18, 18);
     }
-    this.drawTreeLights(g, dark);
+    if (getTheme().lights) this.drawTreeLights(g, dark);
     if (lit > 0.01) {
       g.globalAlpha = 0.1 * lit * dark;
       fillPoly(g, [P(0, -BACK_ROWS), P(L.cols, -BACK_ROWS), P(L.cols, L.rows), P(0, L.rows)], '#ffd890');

@@ -140,13 +140,14 @@ let current = null; // { name, alias, timer, step, nextTime }
 let volume = 0.5;
 let muted = false;
 let gameTrack = 'game';
+let trackChosen = false; // 設定画面で曲を選んだら、テーマの既定曲より優先する
 
 try {
   muted = localStorage.getItem('bgm-muted') === '1';
   const v = parseFloat(localStorage.getItem('bgm-volume'));
   if (!Number.isNaN(v)) volume = Math.min(1, Math.max(0, v));
   const g = localStorage.getItem('bgm-game-track');
-  if (GAME_TRACKS.some((t) => t.id === g)) gameTrack = g;
+  if (GAME_TRACKS.some((t) => t.id === g)) { gameTrack = g; trackChosen = true; }
 } catch { /* noop */ }
 
 function ensureCtx() {
@@ -358,9 +359,18 @@ export function getGameTrack() {
   return gameTrack;
 }
 
+// 季節テーマの既定曲。プレイヤーが設定で曲を選んでいれば、そちらを優先する
+export function setDefaultGameTrack(id) {
+  if (!GAME_TRACKS.some((t) => t.id === id)) return;
+  if (trackChosen) return;
+  gameTrack = id;
+  if (current?.alias === 'game') playBgm('game');
+}
+
 export function setGameTrack(id) {
   if (!GAME_TRACKS.some((t) => t.id === id)) return;
   gameTrack = id;
+  trackChosen = true;
   try { localStorage.setItem('bgm-game-track', id); } catch { /* noop */ }
   // ゲームプレイ中なら、すぐ新しい曲に切り替える
   if (current?.alias === 'game') playBgm('game');

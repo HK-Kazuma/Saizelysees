@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import InstallGuide, { mobilePlatform } from './InstallGuide.jsx';
+import { THEME_MODES, getThemeMode, setThemeMode } from '../render/themes.js';
 
 async function goFullscreen() {
   try {
@@ -13,6 +14,7 @@ async function goFullscreen() {
 export default function Settings({ state, act, onClose }) {
   const [confirm, setConfirm] = useState(false);
   const [guide, setGuide] = useState(false);
+  const [theme, setTheme] = useState(getThemeMode());
   const s = state.stats;
   // PC など判定できない環境では iPhone 向けの手順を見せる
   if (guide) return <InstallGuide platform={mobilePlatform() || 'ios'} fromMenu onDone={() => setGuide(false)} />;
@@ -38,6 +40,20 @@ export default function Settings({ state, act, onClose }) {
               <li>できた料理を配膳 → 食後にレジで会計</li>
               <li>売上でスタッフ・設備・装飾を買い、店を大きくしよう</li>
             </ol>
+          </div>
+          <div className="audio-row">
+            <span>季節テーマ</span>
+            <div style={{ display: 'flex', gap: 6, flex: 1, justifyContent: 'flex-end' }}>
+              {THEME_MODES.map((t) => (
+                <button
+                  key={t.id}
+                  className={`hud-btn ${theme === t.id ? 'primary' : ''}`}
+                  onClick={() => { setThemeMode(t.id); setTheme(t.id); }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="settings-actions">
             <button className="hud-btn" onClick={goFullscreen}>全画面＆横向き</button>
