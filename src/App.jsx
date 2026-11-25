@@ -20,6 +20,7 @@ import TitleScreen from './components/TitleScreen.jsx';
 import InstallGuide, { installGuidePlatform } from './components/InstallGuide.jsx';
 import { playBgm, playClickSfx } from './audio/bgm.js';
 import posterUrl from './assets/poster.jpg';
+import FpsBadge from './dev/FpsBadge.jsx'; // 本番では ?fps 付きのURLのときだけ表示（実機計測用・不要になったら削除）
 
 // 開発者パネル。DEV 以外では null になり、動的 import ごと本番ビルドから消える
 const DevPanel = import.meta.env.DEV ? lazy(() => import('./dev/DevPanel.jsx')) : null;
@@ -155,6 +156,7 @@ export default function App() {
           <div key={t.id} className={`toast toast-${t.kind}`}>{t.text}</div>
         ))}
       </div>
+      {!import.meta.env.DEV && <FpsBadge />}
       {DevPanel && <Suspense fallback={null}><DevPanel state={state} act={act} /></Suspense>}
       <RotateHint />
     </div>
