@@ -1,4 +1,4 @@
-// FPSバッジ。開発サーバーでは開発者パネルの横に、本番では URL に ?fps を付けたときだけ出る（実機の計測用）
+// FPSバッジ（開発者パネルの横に出る）
 import React, { useEffect, useState } from 'react';
 import { perf } from '../render/perf.js';
 import './devpanel.css';
@@ -15,8 +15,4 @@ export function PerfBadge() {
       {perf.stopped ? '停止中（描画なし）' : `${perf.fps.toFixed(0)}fps ${perf.ms.toFixed(1)}ms（最大${perf.maxMs.toFixed(1)}）`}
     </span>
   );
-}
-
-export default function FpsBadge() {
-  return new URLSearchParams(location.search).has('fps') ? <PerfBadge /> : null;
 }
