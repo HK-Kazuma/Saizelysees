@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
+import { GAME_TRACKS, getGameTrack, setGameTrack, getVolume, isMuted, setMuted, setVolume, isClickSfxOn, setClickSfxOn } from '../audio/bgm.js';
 
 export default function AudioSettings({ onClose }) {
+  const [track, setTrack] = useState(getGameTrack());
   const [muted, setMutedState] = useState(isMuted());
   const [clickOn, setClickOn] = useState(isClickSfxOn());
   const [vol, setVol] = useState(Math.round(getVolume() * 100));
@@ -19,6 +20,20 @@ export default function AudioSettings({ onClose }) {
             <button className={`hud-btn ${muted ? '' : 'primary'}`} onClick={() => { setMuted(!muted); setMutedState(!muted); }}>
               {muted ? 'OFF' : 'ON'}
             </button>
+          </div>
+          <div className="audio-row">
+            <span>曲</span>
+            <div style={{ display: 'flex', gap: 6, flex: 1, justifyContent: 'flex-end' }}>
+              {GAME_TRACKS.map((t) => (
+                <button
+                  key={t.id}
+                  className={`hud-btn ${track === t.id ? 'primary' : ''}`}
+                  onClick={() => { setGameTrack(t.id); setTrack(t.id); }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="audio-row">
             <span>ボタン音</span>
