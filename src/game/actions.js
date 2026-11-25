@@ -42,7 +42,11 @@ function closeReport(state) {
 
 const manager = (state) => state.workers.find((w) => w.role === 'manager');
 
+// ショップで買う操作。所持金がマイナス（赤字）の間は利用できない
+const SHOP_ACTIONS = ['BUY_EQUIP', 'UPGRADE_EQUIP', 'HIRE', 'BUY_DECOR', 'BUY_TABLE', 'EXPAND'];
+
 export function applyAction(state, action) {
+  if (SHOP_ACTIONS.includes(action.type) && state.coins < 0) return fail('赤字のためショップは利用できません');
   // 開発者用の操作（本番ビルドでは DEV が false になり、ここも presets.js も取り除かれる）
   if (action.type.startsWith('DEV_')) return import.meta.env.DEV ? applyDevAction(state, action) : fail('unknown action');
   switch (action.type) {

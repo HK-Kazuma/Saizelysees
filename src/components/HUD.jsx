@@ -51,7 +51,7 @@ export default function HUD({ state, act, onOpen }) {
         {state.speed === 2 ? '▶▶' : '▶'}
       </button>
       <button className="hud-btn text" onClick={() => onOpen('recipes')}>レシピ</button>
-      <button className="hud-btn text primary" onClick={() => onOpen('shop')}>ショップ</button>
+      <button className={`hud-btn text primary ${state.coins < 0 ? 'shut' : ''}`} onClick={() => onOpen('shop')} title={state.coins < 0 ? '赤字のため利用できません' : undefined}>ショップ</button>
     </header>
   );
 }

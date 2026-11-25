@@ -50,6 +50,12 @@ export default function ShopPanel({ state, act, onClose }) {
           <span className={`modal-coins ${state.coins < 0 ? 'deficit' : ''}`}>{fmtCoins(state.coins)}</span>
           <button className="close-btn" onClick={onClose}>とじる</button>
         </div>
+        {state.coins < 0 && (
+          <div className="shop-closed">
+            <b>赤字のため、ショップは利用できません</b>
+            <span>所持金が {fmtCoins(state.coins)} です。売上で赤字を解消すると、また買い物ができます。シフトで人件費を見直すのも手です。</span>
+          </div>
+        )}
         <div className="tabs">
           {TABS.map((t) => (
             <button key={t.id} className={`tab ${tab === t.id ? 'on' : ''}`} onClick={() => setTab(t.id)}>
@@ -57,7 +63,7 @@ export default function ShopPanel({ state, act, onClose }) {
             </button>
           ))}
         </div>
-        <div className="shop-list">
+        <div className={`shop-list ${state.coins < 0 ? "closed" : ""}`}>
           {tab === 'equip' &&
             EQUIPMENT.filter((e) => e.id !== 'selfreg' && e.id !== 'qrorder').map((e) => {
               const cur = state.equipment[e.id];
