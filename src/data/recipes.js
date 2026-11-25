@@ -115,9 +115,9 @@ export const RECIPES = [
   },
   {
     id: 'steamed_chicken', name: '蒸し鶏の香味ソース', cat: 'salad', price: 350, lv: 10, req: ['salad'], station: 'salad',
-    ingredients: 'わかめ 1掴み、サラダチキン 2杯、野菜ペースト、ガルムソース',
+    ingredients: 'わかめ 1掴み、サラダチキン 2杯、野菜ペースト、醤油香味ソース',
     icon: { shape: 'cup', a: '#2e5a2a', b: '#f3e2c4' },
-    steps: [base('器'), put('わかめ', '1掴み', '器に'), put('サラダチキン', '2杯', '器に'), top('野菜ペースト', '', 'かける'), top('ガルムソース', '', 'かける')],
+    steps: [base('器'), put('わかめ', '1掴み', '器に'), put('サラダチキン', '2杯', '器に'), top('野菜ペースト', '', 'かける'), top('醤油香味ソース', '', 'かける')],
   },
   {
     id: 'corn_soup', name: 'コーンスープ', cat: 'salad', price: 150, lv: 1, req: ['bath'], station: 'bath',
@@ -140,7 +140,7 @@ export const RECIPES = [
     steps: [base('焼きチーズミラノドリア', '焼きチーズミラノドリアのベースを用意する'), oven(3.2), top('パセリ')],
   },
   {
-    id: 'tarako_doria', name: 'たらこのドリア', cat: 'doria', price: 400, lv: 5, req: ['oven'], station: 'oven',
+    id: 'tarako_doria', name: 'たらこのドリア', cat: 'doria', price: 400, lv: 7, req: ['oven'], station: 'oven',
     ingredients: 'たらこのドリア（ベース：たらこソース・ポップコーンシュリンプ3つ・グランモラビア）',
     icon: { shape: 'gratin', a: '#f2a48a', b: '#e07a3a' },
     steps: [base('たらこのドリア', 'たらこのドリアのベースを用意する'), oven(3)],
@@ -180,7 +180,7 @@ export const RECIPES = [
 
   // ───────── 前菜枠 ─────────
   {
-    id: 'popcorn_shrimp', name: 'ポップコーンシュリンプ', cat: 'appetizer', price: 300, lv: 7, req: ['oven'], station: 'oven',
+    id: 'popcorn_shrimp', name: 'ポップコーンシュリンプ', cat: 'appetizer', price: 300, lv: 5, req: ['oven'], station: 'oven',
     ingredients: 'ポップコーンシュリンプ 9つ',
     icon: { shape: 'bites', a: '#e6a94a', b: '#c0702a' },
     steps: [put('ポップコーンシュリンプ', '9つ', '天板に'), oven(2.6)],
@@ -198,10 +198,10 @@ export const RECIPES = [
     steps: [put('ソーセージ', '5本', '天板に'), put('ポテト', '2個', '天板に'), oven(2.8)],
   },
   {
-    id: 'spicy_chicken', name: '辛味チキン', cat: 'appetizer', price: 300, lv: 3, req: ['oven'], station: 'oven',
-    ingredients: '辛味チキン 4つ（脂取りシート使用）',
+    id: 'spicy_chicken', name: 'スパイシーチキン', cat: 'appetizer', price: 300, lv: 3, req: ['oven'], station: 'oven',
+    ingredients: 'スパイシーチキン 4つ（脂取りシート使用）',
     icon: { shape: 'wings', a: '#b8481f', b: '#e07a3a' },
-    steps: [base('脂取りシート', '器に脂取りシートを敷く'), put('辛味チキン', '4つ'), oven(2.8)],
+    steps: [base('脂取りシート', '器に脂取りシートを敷く'), put('スパイシーチキン', '4つ'), oven(2.8)],
   },
 
   // ───────── 焼きたてパン枠 ─────────
@@ -238,7 +238,7 @@ export const RECIPES = [
 
   // ───────── 肉料理枠 ─────────
   {
-    id: 'hamburg', name: 'ハンバーグ', cat: 'meat', price: 500, lv: 3, req: ['oven', 'stove'], station: 'oven',
+    id: 'hamburg', name: 'ハンバーグ', cat: 'meat', price: 500, lv: 4, req: ['oven', 'stove'], station: 'oven',
     ingredients: 'パティ 1枚、コーン 1杯、ポテト 1個、デミグラスソース 1杯、目玉焼き 1つ（卵使用）',
     icon: { shape: 'steak', a: '#6a3a22', b: '#fff6e0' },
     steps: [put('パティ', '1枚', '鉄皿に'), oven(2.4), peel(), put('コーン', '1杯'), put('ポテト', '1個'), oven(1.6), top('デミグラスソース', '1杯', 'かける'), put('目玉焼き', '1つ')],
@@ -250,31 +250,31 @@ export const RECIPES = [
     steps: [put('パティ', '1枚', '鉄皿に'), oven(2.4), peel(), put('コーン', '1杯'), put('ポテト', '1個'), put('チーズソース', '容器ごと'), oven(1.6), top('チーズソース', '', 'かける')],
   },
   {
-    id: 'diavola_hamburg', name: 'ディアボラ風ハンバーグ', cat: 'meat', price: 500, lv: 7, req: ['oven', 'stove'], station: 'oven',
+    id: 'diavola_hamburg', name: '香味ソースのハンバーグ', cat: 'meat', price: 500, lv: 7, req: ['oven', 'stove'], station: 'oven',
     ingredients: 'パティ 1枚、コーン 1杯、ポテト 1個、野菜ペースト、目玉焼き 1つ（卵使用）',
     icon: { shape: 'steak', a: '#6a3a22', b: '#c84a2a' },
     steps: [put('パティ', '1枚', '鉄皿に'), oven(2.4), peel(), put('コーン', '1杯'), put('ポテト', '1個'), oven(1.6), top('野菜ペースト', '', 'かける'), put('目玉焼き', '1つ')],
   },
   {
     id: 'mixed_grill', name: 'ミックスグリル', cat: 'meat', price: 800, lv: 10, req: ['oven'], station: 'oven',
-    ingredients: 'パティ 1枚、辛味チキン 2つ、シュリンプ 5つ、ポテト 2個、コーン 1杯、デミグラスソース',
+    ingredients: 'パティ 1枚、スパイシーチキン 2つ、シュリンプ 5つ、ポテト 2個、コーン 1杯、デミグラスソース',
     icon: { shape: 'steak', a: '#6a3a22', b: '#e07a3a' },
-    steps: [put('パティ', '1枚', '鉄皿に'), put('辛味チキン', '2つ'), put('シュリンプ', '5つ'), put('ポテト', '2個'), put('コーン', '1杯'), oven(3), top('デミグラスソース', '', 'ハンバーグにかける')],
+    steps: [put('パティ', '1枚', '鉄皿に'), put('スパイシーチキン', '2つ'), put('シュリンプ', '5つ'), put('ポテト', '2個'), put('コーン', '1杯'), oven(3), top('デミグラスソース', '', 'ハンバーグにかける')],
   },
   {
-    id: 'diavola_chicken', name: '若鶏のディアボラ風', cat: 'meat', price: 500, lv: 8, req: ['oven'], station: 'oven',
+    id: 'diavola_chicken', name: 'チキンのディアボラ', cat: 'meat', price: 500, lv: 8, req: ['oven'], station: 'oven',
     ingredients: 'チキン 1枚、コーン 1杯、ポテト 1個、野菜ペースト',
     icon: { shape: 'chicken', a: '#c8843a', b: '#c84a2a' },
     steps: [put('チキン', '1枚', '鉄皿に'), oven(2.4), peel(), put('コーン', '1杯'), put('ポテト', '1個'), oven(1.6), top('野菜ペースト', '', 'かける')],
   },
   {
-    id: 'cheese_chicken', name: '柔らかチキンのチーズ焼き', cat: 'meat', price: 550, lv: 9, req: ['oven'], station: 'oven',
+    id: 'cheese_chicken', name: 'チキンのチーズオーブン焼き', cat: 'meat', price: 550, lv: 9, req: ['oven'], station: 'oven',
     ingredients: 'チキン 1枚、コーン 1杯、ポテト 1個、チーズソース（ピザソース 1杯・ピザチーズ 1杯）',
     icon: { shape: 'chicken', a: '#c8843a', b: '#f6d23a' },
     steps: [put('チキン', '1枚', '鉄皿に'), oven(2.4), peel(), put('コーン', '1杯'), put('ポテト', '1個'), put('チーズソース', '容器ごと'), oven(1.6), top('チーズソース', '', 'かける')],
   },
   {
-    id: 'fried_egg', name: '目玉焼き', cat: 'meat', price: 100, lv: 4, req: ['oven'], station: 'oven',
+    id: 'fried_egg', name: '目玉焼き', cat: 'meat', price: 100, lv: 3, req: ['oven'], station: 'oven',
     ingredients: '卵 2個',
     icon: { shape: 'egg', a: '#fbfaf2', b: '#f6b82a' },
     steps: [put('卵', '2個', '専用の鉄板に'), oven(2)],

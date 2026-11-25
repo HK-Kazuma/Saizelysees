@@ -952,9 +952,13 @@ function step(state, dt) {
   }
 }
 
+// レポート表示中・メニューを開いている間・クレーマーと対決している間は時間が止まる
+export function isTimeStopped(state) {
+  return !!(state.report || state.paused || state.customers.some((c) => c.state === 'fighting'));
+}
+
 export function tick(state, realDt) {
-  // レポート表示中・メニューを開いている間・クレーマーと対決している間は時間が止まる
-  if (state.report || state.paused || state.customers.some((c) => c.state === 'fighting')) return;
+  if (isTimeStopped(state)) return;
   let dt = Math.min(realDt, 0.1) * state.speed;
   // 2倍速でも1ステップが大きくなりすぎないように分割する
   while (dt > 0 && !state.report) { // レポートが出たら、そのフレームの残りも進めない

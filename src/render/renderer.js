@@ -458,7 +458,7 @@ export class Renderer {
     this.buildBackground(state);
     const g = this.ctx;
     g.imageSmoothingEnabled = false;
-    g.fillStyle = '#66a547';
+    g.fillStyle = getTheme().bg;
     g.fillRect(0, 0, this.canvas.width, this.canvas.height);
     g.drawImage(this.bg, view.ox - this.bgOx, view.oy - this.bgOy);
     g.save();

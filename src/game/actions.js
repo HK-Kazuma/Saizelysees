@@ -230,6 +230,7 @@ export function applyAction(state, action) {
       // その日の記録を残す（店舗情報の売上・出費グラフ用）
       if (r && !state.history.some((h) => h.day === r.day)) {
         state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
+        state.stats.bestDaySales = Math.max(state.stats.bestDaySales || 0, r.sales);
       }
       state.report = null;
       state.daily = emptyDaily();
