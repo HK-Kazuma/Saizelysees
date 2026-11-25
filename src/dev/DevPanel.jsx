@@ -2,11 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { RECIPES } from '../data/recipes.js';
 import { PRESETS, CLOCKS } from './presets.js';
+import { THEME_MODES, getThemeMode, setThemeMode } from '../render/themes.js';
 import './devpanel.css';
 
 export default function DevPanel({ state, act }) {
   const [open, setOpen] = useState(false);
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
+  const [theme, setTheme] = useState(getThemeMode());
 
   // 開いている間は時間を止める
   useEffect(() => {
@@ -47,6 +49,13 @@ export default function DevPanel({ state, act }) {
         <button className={state.devRevealAll ? 'on' : ''} onClick={() => run({ type: 'DEV_REVEAL_ALL' })}>
           レシピ帳に全レシピを表示：{state.devRevealAll ? 'ON' : 'OFF'}
         </button>
+      </div>
+
+      <h4>季節テーマ（自動＝12/1〜12/25 はクリスマス）</h4>
+      <div className="dev-row">
+        {THEME_MODES.map((t) => (
+          <button key={t.id} className={theme === t.id ? 'on' : ''} onClick={() => { setThemeMode(t.id); setTheme(t.id); }}>{t.label}</button>
+        ))}
       </div>
 
       <h4>時刻・数値</h4>
