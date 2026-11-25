@@ -86,9 +86,10 @@ export const slotLabel = (i) => `${10 + i}時`;
 // その日の集計（閉店後のレポート用）
 //   wait: 時間帯ごとの [お客さん数, 注文待ちの合計秒, 料理待ちの合計秒, 怒って帰った数]
 //   util: 時間帯ごとの [出勤していた分数, 仕事をしていた分数]（キッチン・ホール別）
+//   drinkSales: ドリンクバーの売上（sold の金額は料理だけ。sold の合計 + drinkSales = sales）
 //   wu:   スタッフ1人ずつの [出勤していた分数, 仕事をしていた分数]（今日だけ。'hall0' など）
 export const emptyDaily = () => ({
-  sold: {}, sales: 0, served: 0, angry: 0, expense: {},
+  sold: {}, sales: 0, drinkSales: 0, served: 0, angry: 0, expense: {},
   wait: Array.from({ length: SLOTS }, () => [0, 0, 0, 0]),
   util: { kitchen: Array.from({ length: SLOTS }, () => [0, 0]), hall: Array.from({ length: SLOTS }, () => [0, 0]) },
   wu: {},
@@ -136,7 +137,7 @@ export function makeReport(state) {
     .sort((a, b) => b.n - a.n || b.amount - a.amount);
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
   return {
-    day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
+    day: state.day, items, sales: d.sales, drinkSales: d.drinkSales || 0, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
     wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0, hasWage: wageOn(state),
   };
 }

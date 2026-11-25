@@ -406,7 +406,8 @@ function pay(state, c) {
   const q = c.quality ?? 2;
   const mult = QUALITY_MULT[q];
   const drink = c.hasDrink ? drinkFee(state) : 0; // ドリンクバーを頼んで飲んだ人だけ
-  const amount = Math.round((r.price * mult) / 10) * 10 + drink;
+  const dish = Math.round((r.price * mult) / 10) * 10; // 料理だけの金額
+  const amount = dish + drink;
   const xp = Math.round((r.price / 12) * mult) + 2;
   state.coins += amount;
   state.stats.sales += amount;
@@ -414,7 +415,8 @@ function pay(state, c) {
   const dl = state.daily;
   const sold = (dl.sold[c.recipeId] ||= { n: 0, amount: 0 });
   sold.n++;
-  sold.amount += amount;
+  sold.amount += dish; // 料理ごとの金額にはドリンク代を混ぜない
+  dl.drinkSales = (dl.drinkSales || 0) + drink; // ドリンク代は別枠で集計（古いセーブにはない）
   dl.sales += amount;
   dl.served++;
   if (q === 3) state.stats.perfect++;

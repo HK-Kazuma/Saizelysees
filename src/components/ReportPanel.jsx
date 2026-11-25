@@ -33,7 +33,8 @@ function Evaluation({ stage, coins }) {
 }
 
 export default function ReportPanel({ report, onClose, onNext }) {
-  const total = report.items.reduce((s, it) => s + it.n, 0);
+  const total = report.items.reduce((s, it) => s + it.n, 0); // 販売数（品数）にドリンクは数えない
+  const drinkSales = report.drinkSales || 0;
   const stage = report.stage;
   const ev = stage?.evaluation;
   return (
@@ -94,6 +95,15 @@ export default function ReportPanel({ report, onClose, onNext }) {
               </div>
             );
           })}
+          {/* ドリンクバー代は料理とは別の行に出す（料理の行の合計 + ドリンク = 売上） */}
+          {drinkSales > 0 && (
+            <div className="recipe">
+              <div className="recipe-row">
+                <div className="recipe-name">ドリンクバー</div>
+                <div className="recipe-price">¥{drinkSales.toLocaleString()}</div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="report-foot">
           {ev?.nextCity ? (
