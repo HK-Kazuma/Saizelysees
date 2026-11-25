@@ -9,6 +9,7 @@ import CookingPanel from './components/CookingPanel.jsx';
 import FightPanel from './components/FightPanel.jsx';
 import ShopPanel from './components/ShopPanel.jsx';
 import PcMenu, { PcIcon } from './components/PcMenu.jsx';
+import MapTravel from './components/MapTravel.jsx';
 import { unreadCount } from './game/mail.js';
 import ReportPanel from './components/ReportPanel.jsx';
 import RecipeBook from './components/RecipeBook.jsx';
@@ -37,6 +38,8 @@ export default function App() {
   const [toasts, setToasts] = useState([]);
   const [poster, setPoster] = useState({ small: null, large: null });
   const toastId = useRef(0);
+  // 人事異動の地図画面。phase: 'map'＝お店がズームアウトして地図が出ている／'back'＝お店に戻る（ズームイン）
+  const [trip, setTrip] = useState(null);
 
   useEffect(() => {
     preloadIcons();
@@ -91,6 +94,24 @@ export default function App() {
     }
   }, [state.report]);
 
+  const startTransfer = useCallback(() => {
+    act({ type: 'SET_PAUSED', paused: true }); // 地図を見ている間、お店の時間は止める
+    setTrip({ mode: 'transfer', phase: 'map' });
+  }, [act]);
+  const endTrip = useCallback(() => {
+    setTrip((t) => (t ? { ...t, phase: 'back' } : t)); // 地図が消えて、お店がズームインしてくる
+    setTimeout(() => {
+      setTrip(null);
+      act({ type: 'SET_PAUSED', paused: false });
+    }, 900);
+  }, [act]);
+  // 地図の「出発」：人事異動を実行して次の店に切り替える（切り替わると時間停止の状態も新しくなるので、止め直す）
+  const departTrip = useCallback(() => {
+    const res = act({ type: 'OPEN_NEXT_STORE' });
+    if (res.ok) act({ type: 'SET_PAUSED', paused: true });
+    return res;
+  }, [act]);
+
   const openCooking = useCallback(
     (orderId) => {
       const res = act({ type: 'START_COOK', orderId });
@@ -125,7 +146,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${trip?.phase === 'map' ? 'tripping' : ''} ${trip?.phase === 'back' ? 'arrive' : ''}`}>
       <HUD state={state} act={act} onOpen={setModal} />
       <div className="main">
         <div className="stage">
@@ -150,7 +171,8 @@ export default function App() {
       {modal === 'audio' && <AudioSettings onClose={() => setModal(null)} />}
       {modal === 'settings' && <Settings state={state} act={act} onClose={() => setModal(null)} />}
 
-      {state.report && <ReportPanel report={state.report} onClose={() => act({ type: 'CLOSE_REPORT' })} onNext={() => act({ type: 'OPEN_NEXT_STORE' })} />}
+      {state.report && !trip && <ReportPanel report={state.report} onClose={() => act({ type: 'CLOSE_REPORT' })} onNext={startTransfer} />}
+      {trip && <MapTravel state={state} mode={trip.mode} closing={trip.phase === 'back'} onCancel={endTrip} onDepart={departTrip} onArrived={endTrip} />}
 
       <div className="toasts">
         {toasts.map((t) => (
