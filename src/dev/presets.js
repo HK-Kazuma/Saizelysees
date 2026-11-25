@@ -6,6 +6,7 @@ import { buildLayout } from '../game/layout.js';
 import { createInitialState, MAX_LEVEL, xpToNext, drinkCap, OPEN_MIN, ARRIVE_MIN } from '../game/state.js';
 import { HALL_SKILLS, SKILL_MAX, normalizeSkills } from '../data/staffTasks.js';
 import { addXp, syncWorkers } from '../game/simulation.js';
+import { STORE_MAP } from '../data/stores.js';
 
 // opts:
 //   level      到達レベル（そのレベルまでに解放される設備・装飾・拡張・スタッフを揃える）
@@ -68,7 +69,8 @@ export const CLOCKS = [
 
 // 現在の state を、作り直した状態 next で丸ごと置き換える（RESET と同じ手順）。時刻や dev フラグは引き継がない
 function replaceState(state, next) {
-  const keep = { devRevealAll: state.devRevealAll, speed: state.speed };
+  // 会社全体のもの（店長の能力・最高売上・出店記録・いまの店）は引き継ぐ
+  const keep = { devRevealAll: state.devRevealAll, speed: state.speed, managerSkills: state.managerSkills, bestDaySales: state.bestDaySales, storeRecords: state.storeRecords, storeId: state.storeId };
   Object.keys(state).forEach((k) => delete state[k]);
   Object.assign(state, next, keep);
   syncWorkers(state);
@@ -93,6 +95,18 @@ export function applyDevAction(state, action) {
       return { ok: true };
     case 'DEV_LEVEL_UP':
       if (state.level < MAX_LEVEL) addXp(state, xpToNext(state.level) - state.xp); // 次のレベルまで丁寧に1段階
+      return { ok: true };
+    case 'DEV_STAGE': {
+      // ステージの確認用：最終日の夕方にする（累計売上は目標の action.rate 倍。怒って帰った人は action.angry 人）
+      const store = STORE_MAP[state.storeId];
+      state.day = state.stage.startDay + store.days - 1;
+      state.stage.sales = Math.round(store.goal * action.rate);
+      state.stage.angry = action.angry || 0;
+      state.clock = 20 * 60;
+      return { ok: true };
+    }
+    case 'DEV_BEST':
+      state.bestDaySales = action.amount;
       return { ok: true };
     case 'DEV_REVEAL_ALL':
       state.devRevealAll = !state.devRevealAll;

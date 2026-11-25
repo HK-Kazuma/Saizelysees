@@ -2,6 +2,7 @@
 import { RECIPES } from '../data/recipes.js';
 import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from '../data/shop.js';
 import { buildLayout } from './layout.js';
+import { STORE_MAP, nextStoreOf, FIRST_STORE, START_COINS, evaluate, startGrants } from '../data/stores.js';
 import { normalizeHallTasks, normalizeSkills, MANAGER_SKILLS, defaultSkills } from '../data/staffTasks.js';
 
 // セーブは「会社全体」と「店舗ごと」に分けて保存する（v2）。旧セーブ(v1)は1店舗ぶんが1つにまとまっていた。
@@ -10,7 +11,7 @@ const ENV = import.meta.env.DEV ? '-dev' : '';
 export const OLD_SAVE_KEY = `saizelysees-save-v1${ENV}`; // 旧セーブ。移行後も消さずに残す（戻せるように）
 export const COMPANY_KEY = `saizelysees-company-v2${ENV}`;
 export const storeKey = (id) => `saizelysees-store-v2-${id}${ENV}`;
-export const FIRST_STORE = 'hikone'; // 1号店（彦根）。店舗データ（P2）ができるまでは固定
+export { FIRST_STORE };
 export const MAX_LEVEL = 30;
 
 // ゲーム内の時計（単位は「分」）。倍速は実時間2秒 = ゲーム内10分（1秒 = 5分）、等倍はその半分（1秒 = 2.5分）
@@ -94,12 +95,30 @@ export function makeReport(state) {
   const items = Object.entries(d.sold)
     .map(([id, v]) => ({ id, n: v.n, amount: v.amount }))
     .sort((a, b) => b.n - a.n || b.amount - a.amount);
-  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins };
+  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d) };
+}
+
+// いまの店のステージの進み具合。today を渡すと、その日の売上を足した値になる（閉店レポート用）
+export function stageSummary(state, today = { sales: 0, angry: 0 }) {
+  const store = STORE_MAP[state.storeId];
+  const st = state.stage;
+  if (!store || !st) return null;
+  const dayNo = state.day - st.startDay + 1;
+  const sales = st.sales + today.sales;
+  const angry = st.angry + today.angry;
+  const sum = { city: store.city, dayNo: Math.min(dayNo, store.days), days: store.days, goal: store.goal, sales, angry, done: st.done };
+  // 最終日の閉店レポートでは、本部評価も出す
+  if (!st.done && dayNo >= store.days) {
+    const ev = evaluate(sales, angry, store.goal);
+    const next = nextStoreOf(store.id);
+    sum.evaluation = { ...ev, nextCity: next?.city || null, grants: startGrants(ev.rank, Math.max(state.bestDaySales || 0, today.sales)) };
+  }
+  return sum;
 }
 
 export function createInitialState() {
   const state = {
-    coins: 1000,
+    coins: START_COINS,
     xp: 0,
     level: 1,
     day: 1,
@@ -110,8 +129,11 @@ export function createInitialState() {
     historyMonthly: [], // 古い日ごとの記録を30日ぶんずつにまとめたもの { block, days, sales, served, angry, expense }
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     // ここから「会社全体」（店をまたいで引き継ぐ）
+    storeRecords: {}, // 出店した店の成績 { 店ID: { rank, rate, sales, angry, days } }
     managerSkills: defaultSkills(MANAGER_SKILLS), // 店長の能力レベル { take, serve, bus, checkout, drink, cook }
     bestDaySales: 0, // 1日の最高売上（先行プレイヤー特典用。定義はP2で確定）
+    storeId: FIRST_STORE, // いまの店（店舗セーブのキー）
+    stage: { startDay: 1, sales: 0, angry: 0, served: 0, done: false, result: null }, // この店のステージ（期間中の累計）
     sizeIdx: 0,
     tables: 2,
     equipment: Object.fromEntries(EQUIPMENT.map((e) => [e.id, { owned: !!e.owned, lv: 1 }])),
@@ -140,8 +162,8 @@ export function createInitialState() {
   return state;
 }
 
-const COMPANY_KEYS = ['managerSkills', 'bestDaySales'];
-const STORE_KEYS = ['day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords'];
+const STORE_KEYS = ['stage', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
 // 日ごとの記録は直近 HISTORY_KEEP 日だけ残し、それより古いものは30日ぶんずつにまとめる
@@ -169,12 +191,12 @@ const currentStoreId = (companyRaw) => (companyRaw && JSON.parse(companyRaw).cur
 export function saveGame(state) {
   try {
     // 会社全体は変わったときだけ書く（店舗は5秒ごとなど、頻繁に書く）
-    const company = JSON.stringify({ v: 2, currentStore: FIRST_STORE, ...pick(state, COMPANY_KEYS) });
+    const company = JSON.stringify({ v: 2, currentStore: state.storeId, ...pick(state, COMPANY_KEYS) });
     if (company !== lastCompany) {
       localStorage.setItem(COMPANY_KEY, company);
       lastCompany = company;
     }
-    localStorage.setItem(storeKey(FIRST_STORE), JSON.stringify({ v: 2, ...pick(state, STORE_KEYS) }));
+    localStorage.setItem(storeKey(state.storeId), JSON.stringify({ v: 2, ...pick(state, STORE_KEYS) }));
   } catch {
     /* プライベートモード等で保存できない場合は無視 */
   }
@@ -214,7 +236,8 @@ export function loadGame() {
       applySaved(state, company, COMPANY_KEYS);
       state.managerSkills = normalizeSkills(state.managerSkills, MANAGER_SKILLS);
     }
-    const raw = localStorage.getItem(storeKey(currentStoreId(companyRaw)));
+    state.storeId = currentStoreId(companyRaw);
+    const raw = localStorage.getItem(storeKey(state.storeId));
     if (raw) {
       const data = JSON.parse(raw);
       applySaved(state, data, STORE_KEYS);
@@ -227,6 +250,8 @@ export function loadGame() {
       // 最高売上の記録がなければ、日ごとの記録から求める
       state.bestDaySales = Math.max(state.bestDaySales || 0, ...state.history.map((h) => h.sales || 0));
       compactHistory(state);
+      // ステージの記録がない古いセーブは、今の日からこの店のステージを始める
+      if (data.stage === undefined) state.stage.startDay = state.day;
       state.layout = buildLayout(state);
       // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
       if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);
@@ -243,7 +268,7 @@ export function clearSave() {
   try {
     // 会社・店舗・旧セーブをすべて消す（旧セーブが残ると、次の起動でまた移行されてしまう）
     localStorage.removeItem(COMPANY_KEY);
-    localStorage.removeItem(storeKey(FIRST_STORE));
+    for (const s of Object.keys(STORE_MAP)) localStorage.removeItem(storeKey(s));
     localStorage.removeItem(OLD_SAVE_KEY);
     lastCompany = '';
   } catch {

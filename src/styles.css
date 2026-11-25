@@ -875,3 +875,16 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .st-pips i.on { background: var(--gold); }
 .st-lv { font-size: 11px; color: var(--green); margin-left: 4px; }
 .st-foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* 店舗ステージ（閉店レポート） */
+.stage-line { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; flex-wrap: wrap; }
+.stage-bar { flex: 1; min-width: 80px; height: 8px; background: #e6dfcf; border-radius: 4px; overflow: hidden; }
+.stage-bar i { display: block; height: 100%; background: var(--green, #3c8c46); }
+.eval { display: flex; gap: 12px; align-items: center; margin: 8px 0; padding: 8px 10px; background: #fff8e1; border: 2px solid #e0b94a; border-radius: 8px; }
+.eval-rank { width: 56px; height: 56px; flex: none; display: flex; align-items: center; justify-content: center; font-size: 36px; font-weight: 900; border-radius: 8px; color: #fff; background: #8a8f99; }
+.eval-rank.rank-S { background: #d4a017; }
+.eval-rank.rank-A { background: #c0392b; }
+.eval-rank.rank-B { background: #3c8c46; }
+.eval-body { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.eval-body small { opacity: 0.7; }
+.eval-grant { margin-top: 2px; font-weight: 700; }
