@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import titleUrl from '../assets/title.png';
-import { playStartSfx } from '../audio/bgm.js';
+import { playStartSfx, playClickSfx } from '../audio/bgm.js';
 
 // 指さしの手（人差し指が上向きのドット絵。外周を自動で縁取りする）
 const HAND = [
@@ -73,7 +73,7 @@ export default function TitleScreen({ onStart }) {
     <>
     <div className={`title-screen${ready ? ' ready' : ''}${leaving ? ' leaving' : ''}`} onClick={start}>
       <div className="title-stage" style={{ backgroundImage: `url(${titleUrl})` }}>
-        <button type="button" className="title-help" onClick={(e) => { e.stopPropagation(); setHelp(true); }}>
+        <button type="button" className="title-help" onClick={(e) => { e.stopPropagation(); playClickSfx(); setHelp(true); }}>
           <PointerHand />
           快適に遊ぶ方法！
         </button>
@@ -87,7 +87,7 @@ export default function TitleScreen({ onStart }) {
         <div className="modal title-help-modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-head">
             <span className="modal-title">快適に遊ぶ方法！</span>
-            <button className="close-btn" onClick={() => setHelp(false)}>とじる</button>
+            <button className="close-btn" onClick={() => { playClickSfx(); setHelp(false); }}>とじる</button>
           </div>
           <div className="help-body">
             <p>ホーム画面に追加すると、アドレスバーのない全画面で遊べます。</p>

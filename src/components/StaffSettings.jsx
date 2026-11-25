@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
 import { SPEED } from '../game/simulation.js';
 import { STAFF, staffLimit } from '../data/shop.js';
 import { getCharSprite } from '../render/sprites.js';
+import { playSwooshSfx } from '../audio/bgm.js';
 
 // スタッフの見た目（ゲーム内のドット絵）
 function CharIcon({ look }) {
@@ -50,6 +51,52 @@ export default function StaffSettings({ state, act, onClose }) {
   };
 
   const tasks = cur && cur.role === 'hall' ? hallPrefOf(state, cur.index) : null;
+
+  // 優先業務の入れ替えアニメーション（FLIP）：動かした業務は浮き上がり、入れ替わる相手と左右交互にずれて動く
+  const rowRefs = useRef({});
+  const prevTops = useRef({});
+  const movedId = useRef(null);
+  const orderKey = tasks ? tasks.map((t) => t.id).join(',') : '';
+  useLayoutEffect(() => {
+    const now = {};
+    Object.entries(rowRefs.current).forEach(([id, el]) => { if (el) now[id] = el.getBoundingClientRect().top; });
+    const mover = movedId.current;
+    movedId.current = null;
+    if (mover && prevTops.current[mover] !== undefined) {
+      playSwooshSfx();
+      Object.entries(now).forEach(([id, top]) => {
+        const prev = prevTops.current[id];
+        const el = rowRefs.current[id];
+        if (prev === undefined || !el || Math.abs(prev - top) < 1 || !el.animate) return;
+        const dy = prev - top;
+        const lift = id === mover;
+        const dx = lift ? 14 : -14;
+        el.animate(
+          lift
+            ? [
+                { transform: `translate(0, ${dy}px) scale(1)`, boxShadow: '0 0 0 2px #2b2b33', offset: 0 },
+                { transform: `translate(${dx}px, ${dy / 2}px) scale(1.04)`, boxShadow: '0 0 0 2px #2b2b33, 0 8px 12px rgba(0,0,0,.35)', offset: 0.5 },
+                { transform: 'translate(0, 0) scale(1)', boxShadow: '0 0 0 2px #2b2b33', offset: 1 },
+              ]
+            : [
+                { transform: `translate(0, ${dy}px)`, offset: 0 },
+                { transform: `translate(${dx}px, ${dy / 2}px)`, offset: 0.5 },
+                { transform: 'translate(0, 0)', offset: 1 },
+              ],
+          { duration: 360, easing: 'ease-in-out' },
+        );
+        if (lift) { el.style.zIndex = 2; setTimeout(() => { el.style.zIndex = ''; }, 360); }
+      });
+    }
+    prevTops.current = now;
+  }, [orderKey, cur]);
+  const moveTask = (id, dir) => {
+    // 現在位置を記録してから入れ替える
+    prevTops.current = {};
+    Object.entries(rowRefs.current).forEach(([k, el]) => { if (el) prevTops.current[k] = el.getBoundingClientRect().top; });
+    movedId.current = id;
+    act({ type: 'MOVE_HALL_TASK', staff: cur.index, id, dir });
+  };
   const skills = cur && cur.role === 'hall' ? hallSkillOf(state, cur.index) : null;
   const curName = cur ? `${cur.role === 'hall' ? 'ホール' : 'キッチン'}${cur.index + 1}` : '';
 
@@ -136,14 +183,14 @@ export default function StaffSettings({ state, act, onClose }) {
                   const def = HALL_TASK_MAP[t.id];
                   const n = note(def);
                   return (
-                    <div key={t.id} className={`st-row ${t.on ? '' : 'off'}`}>
+                    <div key={t.id} ref={(el) => { rowRefs.current[t.id] = el; }} className={`st-row ${t.on ? '' : 'off'}`}>
                       <span className="st-rank">{i + 1}</span>
                       <div className="st-info">
                         <div className="st-name">{def.name}</div>
                         <div className="st-desc">{n || def.desc}</div>
                       </div>
-                      <button className="tab st-arrow" disabled={i === 0} onClick={() => act({ type: 'MOVE_HALL_TASK', staff: cur.index, id: t.id, dir: -1 })} aria-label="優先度を上げる">▲</button>
-                      <button className="tab st-arrow" disabled={i === tasks.length - 1} onClick={() => act({ type: 'MOVE_HALL_TASK', staff: cur.index, id: t.id, dir: 1 })} aria-label="優先度を下げる">▼</button>
+                      <button data-nosfx className="tab st-arrow" disabled={i === 0} onClick={() => moveTask(t.id, -1)} aria-label="優先度を上げる">▲</button>
+                      <button data-nosfx className="tab st-arrow" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, 1)} aria-label="優先度を下げる">▼</button>
                       <button className={`tab st-toggle ${t.on ? 'on' : ''}`} onClick={() => act({ type: 'TOGGLE_HALL_TASK', staff: cur.index, id: t.id })}>{t.on ? 'ON' : 'OFF'}</button>
                     </div>
                   );

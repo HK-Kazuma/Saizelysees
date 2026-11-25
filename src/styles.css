@@ -859,6 +859,7 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .st-list { display: flex; flex-direction: column; gap: 6px; }
 .st-row { display: flex; align-items: center; gap: 6px; background: var(--white); box-shadow: 0 0 0 2px var(--ink); padding: 6px 8px; margin: 2px; }
 .st-row.off { opacity: 0.55; }
+.st-row { position: relative; }
 .st-rank { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: var(--green); color: var(--white); font-weight: bold; font-size: 13px; flex: 0 0 auto; }
 .st-row.off .st-rank { background: #8a8a92; }
 .st-info { flex: 1; min-width: 0; }

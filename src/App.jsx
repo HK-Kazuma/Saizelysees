@@ -59,10 +59,11 @@ export default function App() {
     // ゲーム中は、どのボタンを押しても効果音
     const onClick = (e) => {
       const b = e.target.closest?.('button, [role="button"]');
-      if (b && !b.disabled) playClickSfx();
+      if (b && !b.disabled && !b.hasAttribute('data-nosfx')) playClickSfx();
     };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    // モーダル内は stopPropagation されるので、キャプチャ段階で拾う
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
   }, [started, fightId]);
 
   const toast = useCallback((text, kind = 'info') => {

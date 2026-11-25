@@ -195,6 +195,32 @@ function noise(time, dur, gain, hp) {
   src.start(time);
 }
 
+// 業務の入れ替え「シュッ」（小さな風のような音）
+export function playSwooshSfx() {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const t = c.currentTime + 0.005;
+  const dur = 0.16;
+  const len = Math.floor(c.sampleRate * dur);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  const src = c.createBufferSource();
+  src.buffer = buf;
+  const f = c.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = 1.2;
+  f.frequency.setValueAtTime(1200, t);
+  f.frequency.exponentialRampToValueAtTime(4200, t + dur); // 風が抜けるように上へ
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.55, t + dur * 0.35);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(master);
+  src.start(t);
+}
+
 // お玉でお皿を叩き割ったとき「ぱりぃん！」
 export function playPlateBreakSfx() {
   if (!clickSfxOn) return;
