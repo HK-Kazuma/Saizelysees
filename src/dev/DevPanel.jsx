@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { RECIPES } from '../data/recipes.js';
 import { PRESETS, CLOCKS } from './presets.js';
 import { PerfBadge } from './FpsBadge.jsx';
+import { COMPANY_KEY, OLD_SAVE_KEY, storeKey, FIRST_STORE } from '../game/state.js';
 import { THEME_MODES, getThemeMode, setThemeMode } from '../render/themes.js';
 import './devpanel.css';
 
@@ -10,6 +11,8 @@ export default function DevPanel({ state, act }) {
   const [open, setOpen] = useState(false);
   const [recipeId, setRecipeId] = useState(RECIPES[0].id);
   const [theme, setTheme] = useState(getThemeMode());
+  const [oldSave, setOldSave] = useState('');
+  const [saveMsg, setSaveMsg] = useState('');
 
   // 開いている間は時間を止める
   useEffect(() => {
@@ -34,7 +37,7 @@ export default function DevPanel({ state, act }) {
       <div className="dev-panel">
         <div className="dev-head">
           <b>🛠 開発者パネル</b>
-          <span>Lv{state.level} / ¥{state.coins} / {state.day}日目 / 最高売上¥{state.stats.bestDaySales || 0}</span>
+          <span>Lv{state.level} / ¥{state.coins} / {state.day}日目 / 最高売上¥{state.bestDaySales || 0}</span>
           <button onClick={() => setOpen(false)}>とじる</button>
         </div>
 
@@ -67,7 +70,40 @@ export default function DevPanel({ state, act }) {
           ))}
         </div>
 
-        <h4>時刻・数値</h4>
+        {import.meta.env.DEV && (
+        <>
+          <h4>旧セーブ(v1)の移行テスト（今のdevセーブは消えます）</h4>
+          <div className="dev-row">
+            <textarea
+              className="dev-textarea"
+              placeholder="本番の localStorage の saizelysees-save-v1 の中身(JSON)を貼る"
+              value={oldSave}
+              onChange={(e) => { setOldSave(e.target.value); setSaveMsg(''); }}
+            />
+          </div>
+          <div className="dev-row">
+            <button
+              onClick={() => {
+                try {
+                  JSON.parse(oldSave);
+                } catch {
+                  setSaveMsg('JSON として読めません');
+                  return;
+                }
+                localStorage.removeItem(COMPANY_KEY);
+                localStorage.removeItem(storeKey(FIRST_STORE));
+                localStorage.setItem(OLD_SAVE_KEY, oldSave);
+                location.reload(); // 起動時に v1 → v2 の移行が走る
+              }}
+            >貼ったセーブで移行を試す</button>
+            <button onClick={() => { navigator.clipboard?.writeText(`${localStorage.getItem(COMPANY_KEY)}
+${localStorage.getItem(storeKey(FIRST_STORE))}`); setSaveMsg('会社・店舗のセーブをコピーしました'); }}>今のv2セーブをコピー</button>
+            {saveMsg && <span>{saveMsg}</span>}
+          </div>
+        </>
+      )}
+
+      <h4>時刻・数値</h4>
         <div className="dev-row">
           {CLOCKS.map((c) => <button key={c.label} onClick={() => run({ type: 'DEV_CLOCK', min: c.min })}>{c.label}</button>)}
         </div>

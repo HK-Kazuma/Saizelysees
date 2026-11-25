@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
+import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, MANAGER_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
 import { SPEED } from '../game/simulation.js';
 import { STAFF, staffLimit } from '../data/shop.js';
 import { getCharSprite } from '../render/sprites.js';
@@ -18,14 +18,17 @@ function CharIcon({ look }) {
   return <canvas ref={ref} className="char-icon" />;
 }
 
+const workerName = (w) => (w.role === 'manager' ? '店長' : `${w.role === 'hall' ? 'ホール' : 'キッチン'}${w.index + 1}`);
+
 // 従業員：ホールスタッフ1人ずつ、優先してこなす業務を設定する（上にあるほど優先）
 export default function StaffSettings({ state, act, onClose }) {
   const eq = state.equipment;
   const hall = state.workers.filter((w) => w.role === 'hall').sort((a, b) => a.index - b.index);
   const kitchen = state.workers.filter((w) => w.role === 'kitchen').sort((a, b) => a.index - b.index);
+  const mgr = state.workers.find((w) => w.role === 'manager') || null;
   const [sel, setSel] = useState('hall0');
   const [tab, setTab] = useState('skill'); // skill=能力 / prio=優先業務
-  const cur = [...hall, ...kitchen].find((w) => `${w.role}${w.index}` === sel) || hall[0] || kitchen[0] || null;
+  const cur = [mgr, ...hall, ...kitchen].filter(Boolean).find((w) => `${w.role}${w.index}` === sel) || hall[0] || kitchen[0] || mgr;
 
   // 導入済みの設備で不要になった業務・必要な設備がない業務の理由
   const note = (def) => {
@@ -44,8 +47,8 @@ export default function StaffSettings({ state, act, onClose }) {
     return (
       <button key={id} className={`st-member ${cur === w ? 'on' : ''}`} onClick={() => setSel(id)}>
         <CharIcon look={w.look} />
-        <b>{w.role === 'hall' ? 'ホール' : 'キッチン'}{w.index + 1}</b>
-        <small>{w.role === 'hall' ? `優先: ${topTask(w)}` : '調理担当'}</small>
+        <b>{workerName(w)}</b>
+        <small>{w.role === 'manager' ? '能力は引き継ぎ' : w.role === 'hall' ? `優先: ${topTask(w)}` : '調理担当'}</small>
       </button>
     );
   };
@@ -97,8 +100,11 @@ export default function StaffSettings({ state, act, onClose }) {
     movedId.current = id;
     act({ type: 'MOVE_HALL_TASK', staff: cur.index, id, dir });
   };
-  const skills = cur && cur.role === 'hall' ? hallSkillOf(state, cur.index) : null;
-  const curName = cur ? `${cur.role === 'hall' ? 'ホール' : 'キッチン'}${cur.index + 1}` : '';
+  const isMgr = cur?.role === 'manager';
+  const skills = cur && cur.role === 'hall' ? hallSkillOf(state, cur.index) : isMgr ? state.managerSkills : null;
+  const skillDefs = isMgr ? MANAGER_SKILLS : HALL_SKILLS;
+  const upgrade = (id) => (isMgr ? { type: 'UPGRADE_MANAGER_SKILL', skill: id } : { type: 'UPGRADE_SKILL', staff: cur.index, skill: id });
+  const curName = cur ? workerName(cur) : '';
 
   return (
     <div className="modal-back" onClick={onClose}>
@@ -112,6 +118,12 @@ export default function StaffSettings({ state, act, onClose }) {
         </div>
         <div className="si-body st-split">
           <div className="st-side">
+          {mgr && (
+            <>
+              <div className="st-title">店長</div>
+              <div className="st-members">{renderCard(mgr)}</div>
+            </>
+          )}
           {hall.length + kitchen.length === 0 && <div className="st-help">スタッフを雇うと、ここで1人ずつ設定できます。</div>}
           {hall.length > 0 && (
             <>
@@ -139,14 +151,15 @@ export default function StaffSettings({ state, act, onClose }) {
             <>
               <div className="st-stats">
                 <div className="si-stat"><small>移動の速さ</small><b>{SPEED[cur.role]}マス/秒</b></div>
-                <div className="si-stat"><small>担当</small><b>{cur.role === 'hall' ? 'ホール' : '調理'}</b></div>
+                <div className="si-stat"><small>担当</small><b>{isMgr ? '店長' : cur.role === 'hall' ? 'ホール' : '調理'}</b></div>
               </div>
               {!skills && <div className="st-help">キッチンスタッフは、注文が入った料理を順番に調理します。調理の速さは設備のレベルで上がります（スタッフの強化はありません）。</div>}
               {skills && (
                 <>
+                  {isMgr && <div className="st-help">店長の能力は、次の店に移っても引き継がれます（強化は今の店のお金で買います）。調理は、自分で調理するときの設備の待ち時間が短くなります。</div>}
                   <div className="st-help">業務ごとに最大Lv{SKILL_MAX}まで強化できます。注文取り・会計・ドリンク交換は作業が速くなり、配膳・片付けは1回の往復で運べる数がLvと同じだけ増えます。</div>
                   <div className="st-list">
-                    {HALL_SKILLS.map((def) => {
+                    {skillDefs.map((def) => {
                       const lv = skills[def.id];
                       const price = SKILL_PRICE[lv];
                       const max = lv >= SKILL_MAX;
@@ -160,7 +173,7 @@ export default function StaffSettings({ state, act, onClose }) {
                           {max ? (
                             <span className="shop-done">MAX</span>
                           ) : (
-                            <button className="buy-btn" disabled={state.coins < price} onClick={() => act({ type: 'UPGRADE_SKILL', staff: cur.index, skill: def.id })}>
+                            <button className="buy-btn" disabled={state.coins < price} onClick={() => act(upgrade(def.id))}>
                               <span className="buy-label">強化</span>
                               <span className="buy-price">¥{price.toLocaleString()}</span>
                             </button>

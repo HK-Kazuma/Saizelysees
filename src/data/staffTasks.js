@@ -20,12 +20,15 @@ export const HALL_SKILLS = [
   { id: 'checkout', name: '会計', kind: 'speed' },
   { id: 'drink', name: 'ドリンク交換', kind: 'speed' },
 ];
+// 店長の能力：ホールと同じ5種に調理を足した6種。会社全体のセーブに入り、店をまたいで引き継ぐ。
+// 調理は、店長が自分で調理するときの設備の待ち時間が短くなる（効果と価格は暫定）
+export const MANAGER_SKILLS = [...HALL_SKILLS, { id: 'cook', name: '調理', kind: 'speed', label: '調理の待ち時間' }];
 export const skillTimeMult = (lv) => 1 - 0.15 * (lv - 1); // Lv1=100% … Lv5=40%
-export const skillEffect = (def, lv) => (def.kind === 'carry' ? `一度に${lv}つ運べる` : `作業時間 ${Math.round(skillTimeMult(lv) * 100)}%`);
-export const defaultSkills = () => Object.fromEntries(HALL_SKILLS.map((s) => [s.id, 1]));
+export const skillEffect = (def, lv) => (def.kind === 'carry' ? `一度に${lv}つ運べる` : `${def.label || '作業時間'} ${Math.round(skillTimeMult(lv) * 100)}%`);
+export const defaultSkills = (defs = HALL_SKILLS) => Object.fromEntries(defs.map((s) => [s.id, 1]));
 export const hallSkillOf = (state, index) => (state.hallSkills[index] ||= defaultSkills());
-export function normalizeSkills(obj) {
-  const out = defaultSkills();
+export function normalizeSkills(obj, defs = HALL_SKILLS) {
+  const out = defaultSkills(defs);
   for (const k of Object.keys(out)) {
     const v = Math.floor(Number(obj?.[k]));
     if (v >= 1 && v <= SKILL_MAX) out[k] = v;

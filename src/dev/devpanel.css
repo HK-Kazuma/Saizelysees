@@ -9,3 +9,4 @@
 .dev-panel button.on { background: #2f6b3a; border-color: #4a9a52; }
 .dev-perf { position: fixed; left: 46px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 200; font-size: 11px; color: #fff; background: rgba(0,0,0,0.55); padding: 2px 6px; border-radius: 4px; pointer-events: none; font-variant-numeric: tabular-nums; }
 .dev-backdrop { position: fixed; inset: 0; z-index: 200; background: transparent; }
+.dev-textarea { width: 100%; height: 56px; font-size: 11px; background: #11131a; color: #e8e8ee; border: 1px solid #4b5070; border-radius: 4px; }

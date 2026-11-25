@@ -1,8 +1,8 @@
 // プレイヤーの操作を state に反映する。戻り値 { ok, msg } はUIのトースト表示に使う。
-import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS } from '../data/staffTasks.js';
+import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS, MANAGER_SKILLS } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave, emptyDaily, drinkCap } from './state.js';
+import { createInitialState, clearSave, emptyDaily, drinkCap, compactHistory } from './state.js';
 import { applyDevAction } from '../dev/presets.js';
 
 const fail = (msg) => ({ ok: false, msg });
@@ -77,6 +77,17 @@ export function applyAction(state, action) {
       skills[action.skill] = lv + 1;
       const name = HALL_SKILLS.find((s) => s.id === action.skill).name;
       state.events.push({ type: 'purchase', text: `ホール${action.staff + 1}の${name}が Lv${lv + 1} になりました` });
+      return okMsg();
+    }
+    case 'UPGRADE_MANAGER_SKILL': {
+      // 店長の能力を1段階強化する（店のお金で買う。強化した能力は次の店にも引き継がれる）
+      const def = MANAGER_SKILLS.find((s) => s.id === action.skill);
+      if (!def) return fail('強化できません');
+      const lv = state.managerSkills[def.id];
+      if (lv >= SKILL_MAX) return fail('これ以上強化できません');
+      if (!spend(state, SKILL_PRICE[lv], 'staff')) return fail('お金が足りません');
+      state.managerSkills[def.id] = lv + 1;
+      state.events.push({ type: 'purchase', text: `店長の${def.name}が Lv${lv + 1} になりました` });
       return okMsg();
     }
     case 'COPY_HALL_TASKS': {
@@ -230,7 +241,8 @@ export function applyAction(state, action) {
       // その日の記録を残す（店舗情報の売上・出費グラフ用）
       if (r && !state.history.some((h) => h.day === r.day)) {
         state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
-        state.stats.bestDaySales = Math.max(state.stats.bestDaySales || 0, r.sales);
+        state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
+        compactHistory(state);
       }
       state.report = null;
       state.daily = emptyDaily();
