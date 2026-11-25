@@ -70,7 +70,7 @@ export function applyAction(state, action) {
     }
     case 'CHECKOUT': {
       const c = state.customers.find((x) => x.id === action.customerId);
-      if (!c || !(c.state === 'atRegister' || c.state === 'toPay') || c.claimedBy) return fail('会計できません');
+      if (!c || !(c.state === 'atRegister' || c.state === 'toPay') || c.claimedBy || state.equipment.selfreg?.owned) return fail('会計できません');
       const m = manager(state);
       c.claimedBy = m.id;
       m.queue.push({ type: 'checkout', customerId: c.id });

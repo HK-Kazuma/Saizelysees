@@ -39,6 +39,11 @@ function buildCards(state) {
         cards.push({ ...base, title: '配膳中', note: who(o.claimedBy), kind: 'busy' });
       }
     } else if (c.state === 'toPay' || c.state === 'atRegister') {
+      if (state.equipment.selfreg?.owned) {
+        // 無人レジ：お客さんが自分で会計するので、押すボタンはなく「お会計中...」と表示する
+        cards.push({ ...base, ratio: 1, title: 'お会計中...', note: 'お客さんが無人レジで会計しています', action: null, kind: 'pay', hideDish: true, iconText: '💴' });
+        return;
+      }
       cards.push({ ...base, ratio: 1, title: '会計する', note: c.claimedBy ? who(c.claimedBy) : 'レジでお待ちです', action: c.claimedBy ? null : { type: 'CHECKOUT', customerId: c.id }, kind: 'pay' });
     } else if (c.state === 'wantPay') {
       cards.push({ ...base, ratio: 1, title: '会計待ち', note: 'レジが空くのを待っています', kind: 'busy' });
