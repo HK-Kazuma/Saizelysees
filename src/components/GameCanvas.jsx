@@ -33,7 +33,8 @@ export default function GameCanvas({ store, poster, act, onCook, onFight, onPost
     let themeId = getTheme().id;
     const loop = (now) => {
       raf = requestAnimationFrame(loop);
-      if (now - last < FRAME_MS - 1) return; // 30回/秒に間引く（次のフレームまで待つ）
+      // 30回/秒に間引く。ただしキャンバスが消された直後（ズーム・リサイズ）は、空の画面を見せないようすぐ描く
+      if (!r.dirty && now - last < FRAME_MS - 1) return;
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const t0 = performance.now();
