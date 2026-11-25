@@ -102,7 +102,7 @@ export function createInitialState() {
     daily: emptyDaily(),
     history: [], // 日ごとの記録 { day, sales, served, angry, expense }（店舗情報のグラフ用）
     report: null, // 閉店後のレポート（表示中は時間が止まる）
-    stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
+    stats: { sales: 0, served: 0, angry: 0, perfect: 0, bestDaySales: 0 }, // bestDaySales＝1日の最高売上（先行プレイヤー特典用。定義はP2で確定）
     sizeIdx: 0,
     tables: 2,
     equipment: Object.fromEntries(EQUIPMENT.map((e) => [e.id, { owned: !!e.owned, lv: 1 }])),
@@ -159,6 +159,8 @@ export function loadGame() {
       }
       state.hallPrefs = Array.from(state.hallPrefs || [], (list) => normalizeHallTasks(list));
       state.hallSkills = Array.from(state.hallSkills || [], (s) => normalizeSkills(s));
+      // 最高売上の記録がない古いセーブは、日ごとの記録から求める
+      state.stats.bestDaySales = Math.max(state.stats.bestDaySales || 0, ...state.history.map((h) => h.sales || 0));
       state.layout = buildLayout(state);
       // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
       if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);
