@@ -9,7 +9,7 @@
 //   bus(片付け: pickup→wash。食べ終わった席の食器を洗い場へ)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { slotOf, shiftOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { slotOf, wageOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
 import { wageOf } from '../data/shop.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
@@ -1004,7 +1004,7 @@ function stepClock(state, dt) {
 // 出勤している間(店に入っている間)だけ、稼働率の分母に入れ、シフトのある店では時給を払う。店長は対象外
 function trackStaff(state, dm) {
   const slot = slotOf(state.clock);
-  const paid = shiftOn(state);
+  const paid = wageOn(state);
   for (const w of state.workers) {
     if (w.role === 'manager' || w.shift === 'off') continue;
     if (paid) state.wageAcc += (wageOf(w.role, state.level) * dm) / 60;

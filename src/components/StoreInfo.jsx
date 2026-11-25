@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { appeal, EXPENSE_CATS, sumExpense, SLOTS, shiftOn } from '../game/state.js';
+import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn } from '../game/state.js';
 import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
 const TABS = [
@@ -91,7 +91,7 @@ export function Metrics({ state, records, sel, setSel, cur }) {
         <Stat label="人時売上高" value={hours > 0 ? yen(cur.sales / hours) : '—'} sub="スタッフ1人が1時間で生む売上" />
         <Stat label="キッチン稼働率" value={pct(k)} />
         <Stat label="ホール稼働率" value={pct(h)} />
-        {shiftOn(state) && <Stat label="人件費" value={yen(labor)} sub={cur.sales > 0 ? `売上の ${Math.round((labor / cur.sales) * 100)}%` : null} />}
+        {wageOn(state) && <Stat label="人件費" value={yen(labor)} sub={cur.sales > 0 ? `売上の ${Math.round((labor / cur.sales) * 100)}%` : null} />}
       </div>
     </>
   );

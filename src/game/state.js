@@ -70,6 +70,7 @@ export function unlocksAt(level, state) {
       ...EQUIPMENT.filter((e) => e.lv === level && !state?.equipment[e.id]?.owned).map((e) => e.name),
       ...STAFF.filter((s) => s.lv === level).map((s) => s.name),
       ...DECOR.filter((d) => d.lv === level && !state?.decor[d.id]).map((d) => d.name),
+      ...(level === STORE_MAP[state?.storeId]?.wageLv && level > 1 ? ['人件費（時給）がかかるようになります'] : []),
       ...(level === HALL_BONUS_LV ? [`ホールスタッフの上限 +${HALL_BONUS}人`] : []),
       ...STORE_SIZES.filter((s) => s.lv === level && s.price > 0).map((s) => `店舗拡張「${s.name}」`),
     ],
@@ -94,6 +95,8 @@ export const emptyDaily = () => ({
 
 // シフト：時間帯ごとの出勤人数。null は「雇っている全員」。シフトのある店（草津〜）だけ使う
 export const shiftOn = (state) => !!STORE_MAP[state.storeId]?.shift;
+// 人件費がかかる状態か（シフトのある店は最初から。彦根は店のレベルが wageLv になってから）
+export const wageOn = (state) => state.level >= (STORE_MAP[state.storeId]?.wageLv ?? Infinity);
 export const defaultShift = () => ({ kitchen: Array(SLOTS).fill(null), hall: Array(SLOTS).fill(null) });
 export function normalizeShift(obj) {
   const out = defaultShift();
@@ -132,7 +135,7 @@ export function makeReport(state) {
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
   return {
     day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
-    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0, hasWage: shiftOn(state),
+    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0, hasWage: wageOn(state),
   };
 }
 
