@@ -1,9 +1,9 @@
 // 店舗データ。1店舗＝1ステージ。順番に出店していく（都道府県・市町・現存/閉店・順番は P9 で全国に広げる）。
 // 数値（期間・目標）は暫定。テストプレイで調整する。ゲーム内では市町名だけを使う。
 export const STORES = [
-  { id: 'hikone', city: '彦根', pref: '滋賀県', status: 'existing', days: 14, goal: 100000 }, // 1号店：調理・接客の基本
-  { id: 'kusatsu', city: '草津', pref: '滋賀県', status: 'existing', days: 14, goal: 200000 }, // 2号店：シフト調整・発注（P3・P4で追加）
-  { id: 'otsu', city: '大津', pref: '滋賀県', status: 'existing', days: 14, goal: 300000 }, // 3号店：在庫確認・レイアウト（P8で追加）
+  { id: 'hikone', city: '彦根', pref: '滋賀県', status: 'existing', days: 14, goal: 150000 }, // 1号店：調理・接客の基本
+  { id: 'kusatsu', city: '草津', pref: '滋賀県', status: 'existing', days: 14, goal: 250000 }, // 2号店：シフト調整・発注（P3・P4で追加）
+  { id: 'otsu', city: '大津', pref: '滋賀県', status: 'existing', days: 14, goal: 350000 }, // 3号店：在庫確認・レイアウト（P8で追加）
 ];
 export const STORE_MAP = Object.fromEntries(STORES.map((s) => [s.id, s]));
 export const FIRST_STORE = STORES[0].id;
