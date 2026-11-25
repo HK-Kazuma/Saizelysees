@@ -462,7 +462,7 @@ function freePassSlot(state) {
 }
 
 // ───────── ホールスタッフの能力 ─────────
-const skillLv = (state, w, id) => (w.role === 'hall' ? hallSkillOf(state, w.index)[id] : 1);
+const skillLv = (state, w, id) => (w.role === 'hall' ? hallSkillOf(state, w.index)[id] : w.role === 'manager' ? state.managerSkills[id] ?? 1 : 1);
 const timeMult = (state, w, id) => skillTimeMult(skillLv(state, w, id)); // 作業時間の倍率
 const carryCap = (state, w, id) => skillLv(state, w, id); // 1回の往復で運べる数
 

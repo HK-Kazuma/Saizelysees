@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { RECIPE_MAP, BUTTON_POOL, CATEGORIES } from '../data/recipes.js';
 import { EQUIP_MAP } from '../data/shop.js';
 import { eqSpeed } from '../game/state.js';
+import { skillTimeMult } from '../data/staffTasks.js';
 import DishIcon from './DishIcon.jsx';
 
 const ALL_BUTTONS = [...new Set(Object.values(BUTTON_POOL).flat())];
@@ -104,7 +105,7 @@ export default function CookingPanel({ state, orderId, act, onClose, toast }) {
       setRight(label);
       setTimeout(() => setRight(null), 180);
       if (step.time) {
-        const gameSec = step.time * eqSpeed(state, step.eq);
+        const gameSec = step.time * eqSpeed(state, step.eq) * skillTimeMult(state.managerSkills.cook); // 店長の調理の能力で短くなる
         act({ type: 'EQ_BUSY', eq: step.eq, time: gameSec });
         setTimer({ start: performance.now(), dur: (gameSec / state.speed) * 1000, eq: step.eq });
       } else {
