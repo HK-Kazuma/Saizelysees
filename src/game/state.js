@@ -73,8 +73,38 @@ export function unlocksAt(level, state) {
   };
 }
 
+// ───────── シフトと時間帯の指標（1時間ごとの12コマ。10時台〜21時台。出勤の9時台は10時台、閉店後の22時台は21時台に含める） ─────────
+export const SLOTS = 12;
+export const slotOf = (clock) => Math.min(SLOTS - 1, Math.max(0, Math.floor(clock / 60) - 10));
+export const slotLabel = (i) => `${10 + i}時`;
+
 // その日の集計（閉店後のレポート用）
-export const emptyDaily = () => ({ sold: {}, sales: 0, served: 0, angry: 0, expense: {} });
+//   wait: 時間帯ごとの [お客さん数, 注文待ちの合計秒, 料理待ちの合計秒, 怒って帰った数]
+//   util: 時間帯ごとの [出勤していた分数, 仕事をしていた分数]（キッチン・ホール別）
+//   wu:   スタッフ1人ずつの [出勤していた分数, 仕事をしていた分数]（今日だけ。'hall0' など）
+export const emptyDaily = () => ({
+  sold: {}, sales: 0, served: 0, angry: 0, expense: {},
+  wait: Array.from({ length: SLOTS }, () => [0, 0, 0, 0]),
+  util: { kitchen: Array.from({ length: SLOTS }, () => [0, 0]), hall: Array.from({ length: SLOTS }, () => [0, 0]) },
+  wu: {},
+});
+
+// シフト：時間帯ごとの出勤人数。null は「雇っている全員」。シフトのある店（草津〜）だけ使う
+export const shiftOn = (state) => !!STORE_MAP[state.storeId]?.shift;
+export const defaultShift = () => ({ kitchen: Array(SLOTS).fill(null), hall: Array(SLOTS).fill(null) });
+export function normalizeShift(obj) {
+  const out = defaultShift();
+  for (const role of ['kitchen', 'hall']) {
+    for (let i = 0; i < SLOTS; i++) {
+      const v = obj?.[role]?.[i];
+      if (Number.isInteger(v) && v >= 0) out[role][i] = v;
+    }
+  }
+  return out;
+}
+// いまの時間帯に出勤する人数
+export const dutyCount = (state, role, clock = state.clock) => (shiftOn(state) ? Math.min(state.staff[role], state.shift[role][slotOf(clock)] ?? state.staff[role]) : state.staff[role]);
+export const onDutyIdx = (state, role, index, clock = state.clock) => index < dutyCount(state, role, clock);
 
 // 出費の種類（店舗情報の出費タブ用）
 export const EXPENSE_CATS = [
@@ -82,6 +112,7 @@ export const EXPENSE_CATS = [
   { id: 'staff', name: 'スタッフの雇用' },
   { id: 'decor', name: '装飾' },
   { id: 'expand', name: '店舗の拡張・テーブル' },
+  { id: 'labor', name: '人件費' },
   { id: 'penalty', name: 'クレーマー被害' },
 ];
 // ドリンクバー：1人ぶんの料金と、交換までに出せるドリンクの数（強化で増える）
@@ -95,7 +126,11 @@ export function makeReport(state) {
   const items = Object.entries(d.sold)
     .map(([id, v]) => ({ id, n: v.n, amount: v.amount }))
     .sort((a, b) => b.n - a.n || b.amount - a.amount);
-  return { day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d) };
+  const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
+  return {
+    day: state.day, items, sales: d.sales, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
+    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0,
+  };
 }
 
 // いまの店のステージの進み具合。today を渡すと、その日の売上を足した値になる（閉店レポート用）
@@ -128,6 +163,7 @@ export function createInitialState() {
     report: null, // 閉店後のレポート（表示中は時間が止まる）
     historyMonthly: [], // 古い日ごとの記録を30日ぶんずつにまとめたもの { block, days, sales, served, angry, expense }
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
+    shift: defaultShift(), // 時間帯ごとの出勤人数 { kitchen: [12コマ], hall: [12コマ] }
     // ここから「会社全体」（店をまたいで引き継ぐ）
     storeRecords: {}, // 出店した店の成績 { 店ID: { rank, rate, sales, angry, days } }
     managerSkills: defaultSkills(MANAGER_SKILLS), // 店長の能力レベル { take, serve, bus, checkout, drink, cook }
@@ -149,6 +185,8 @@ export function createInitialState() {
     seatOcc: {},
     eqBusy: {},
     drinkStock: 0, // ドリンクバーに残っているドリンクの数（0で切れ）
+    wageAcc: 0, // 人件費の端数（1円未満）
+    clockDelta: 0, // このフレームで進んだゲーム内の分（早送り中は0）
     drinkClaim: null, // 交換に向かっている店員
     hallSkills: [], // ホールスタッフ1人ずつの能力レベル [index] = { take, serve, bus, checkout, drink }
     hallPrefs: [], // ホールスタッフ1人ずつの業務の優先順 [index] = [{ id, on }]（従業員画面で変更）
@@ -163,7 +201,7 @@ export function createInitialState() {
 }
 
 const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords'];
-const STORE_KEYS = ['stage', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const STORE_KEYS = ['stage', 'shift', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
 // 日ごとの記録は直近 HISTORY_KEEP 日だけ残し、それより古いものは30日ぶんずつにまとめる
@@ -247,6 +285,7 @@ export function loadGame() {
       }
       state.hallPrefs = Array.from(state.hallPrefs || [], (list) => normalizeHallTasks(list));
       state.hallSkills = Array.from(state.hallSkills || [], (s) => normalizeSkills(s));
+      state.shift = normalizeShift(state.shift);
       // 最高売上の記録がなければ、日ごとの記録から求める
       state.bestDaySales = Math.max(state.bestDaySales || 0, ...state.history.map((h) => h.sales || 0));
       compactHistory(state);

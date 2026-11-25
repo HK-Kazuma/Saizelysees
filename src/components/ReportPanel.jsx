@@ -42,6 +42,12 @@ export default function ReportPanel({ report, onClose, onNext }) {
           <div><small>怒って帰った人</small><b>{report.angry}人</b></div>
           <div><small>所持金</small><b>¥{report.coins.toLocaleString()}</b></div>
         </div>
+        {report.staffMin > 0 && (
+          <div className="stage-line">
+            <span>人時売上高 ¥{Math.round(report.sales / (report.staffMin / 60)).toLocaleString()}</span>
+            {report.labor > 0 && <span>人件費 ¥{report.labor.toLocaleString()}（売上の {report.sales > 0 ? Math.round((report.labor / report.sales) * 100) : 0}%）</span>}
+          </div>
+        )}
         {stage && !stage.done && (
           <div className="stage-line">
             <span>{stage.city}店 {stage.dayNo}/{stage.days}日</span>

@@ -151,6 +151,10 @@ export default function StaffSettings({ state, act, onClose }) {
             <>
               <div className="st-stats">
                 <div className="si-stat"><small>移動の速さ</small><b>{SPEED[cur.role]}マス/秒</b></div>
+                {cur.role !== 'manager' && (() => {
+                  const u = state.daily.wu?.[`${cur.role}${cur.index}`];
+                  return <div className="si-stat"><small>今日の稼働率</small><b>{u && u[0] > 0 ? `${Math.round((u[1] / u[0]) * 100)}%` : '—'}</b></div>;
+                })()}
                 <div className="si-stat"><small>担当</small><b>{isMgr ? '店長' : cur.role === 'hall' ? 'ホール' : '調理'}</b></div>
               </div>
               {!skills && <div className="st-help">キッチンスタッフは、注文が入った料理を順番に調理します。調理の速さは設備のレベルで上がります（スタッフの強化はありません）。</div>}

@@ -9,8 +9,9 @@
 //   bus(片付け: pickup→wash。食べ終わった席の食器を洗い場へ)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { slotOf, shiftOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
+import { WAGE } from '../data/shop.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -121,7 +122,7 @@ function spawnCustomer(state) {
 
 // クレーマーに所持金の半分を持っていかれる（戦いに負けたとき・放置して帰られたとき共通）
 function takeHalfCoins(state) {
-  const lost = Math.floor(state.coins / 2);
+  const lost = Math.floor(Math.max(0, state.coins) / 2); // 赤字（所持金がマイナス）のときは持っていかれない
   state.coins -= lost;
   const ex = (state.daily.expense ||= {});
   ex.penalty = (ex.penalty || 0) + lost;
@@ -155,7 +156,20 @@ function removeOrderOf(state, c) {
   state.orders = state.orders.filter((x) => x !== o);
 }
 
+// 待ち時間の記録（時間帯ごと）。注文待ち＝来店して呼んでから注文を取るまで、料理待ち＝注文してから料理が届くまで
+function recordWait(state, c, angry) {
+  if (c.complainer) return;
+  const w = state.daily.wait[slotOf(state.clock)];
+  w[0] += 1;
+  if (c.tOrder != null) {
+    w[1] += c.waitTake || 0;
+    w[2] += state.time - c.tOrder;
+  } else w[1] += state.time - (c.tCall ?? state.time);
+  if (angry) w[3] += 1;
+}
+
 function leaveAngry(state, c) {
+  if (c.state === 'calling' || c.state === 'waiting') recordWait(state, c, true);
   removeOrderOf(state, c);
   freeSeat(state, c);
   c.dish = null;
@@ -211,6 +225,8 @@ function placeOrder(state, c) {
   state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
   c.state = 'waiting';
   c.claimedBy = null;
+  c.waitTake = state.time - (c.tCall ?? state.time);
+  c.tOrder = state.time;
   c.patience = c.maxPatience = waitPatience(state, r);
   state.events.push({ type: 'order', recipeId: c.recipeId });
   // ドリンクバー付きなら、注文のあと自分で取りに行く
@@ -286,6 +302,7 @@ function updateCustomer(state, c, dt) {
       c.timer -= dt;
       if (c.timer <= 0) {
         c.state = 'calling';
+        c.tCall = state.time;
         c.patience = c.maxPatience = callPatience(state);
       }
       break;
@@ -424,7 +441,7 @@ const workTime = (clock) => clock >= ARRIVE_MIN && clock < CLOSE_MIN;
 function makeWorker(state, role, index) {
   const L = state.layout;
   const spot = role === 'manager' ? L.managerIdle : role === 'kitchen' ? L.kitchenIdle[index] : L.hallIdle[index];
-  const off = !workTime(state.clock);
+  const off = !workTime(state.clock) || (role !== 'manager' && !onDutyIdx(state, role, index));
   return {
     id: newId(state),
     kind: 'worker',
@@ -706,6 +723,7 @@ function completeAct(state, w) {
       t.carried.push(o.id);
     } else {
       const c = findCustomer(state, o.customerId);
+      recordWait(state, c, false);
       c.state = 'eating';
       c.timer = rand(6, 9);
       c.dish = o.recipeId;
@@ -818,12 +836,15 @@ function idleSpot(state, w) {
   return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle).length];
 }
 
+// シフトのある店では、いまの時間帯に出勤する人数に入っているか（店長は常に出勤）
+const onDuty = (state, w) => w.role === 'manager' || onDutyIdx(state, w.role, w.index);
+
 function updateWorker(state, w, dt) {
   const speed = SPEED[w.role];
   const L = state.layout;
   if (w.shift === 'off') {
-    // 開店1時間前になったら裏口から入ってくる
-    if (workTime(state.clock)) {
+    // 開店1時間前になったら裏口から入ってくる（シフトのある店では、出勤の時間帯のスタッフだけ）
+    if (workTime(state.clock) && onDuty(state, w)) {
       w.shift = 'arriving';
       w.x = L.backOutside.x;
       w.y = L.backOutside.y;
@@ -842,8 +863,9 @@ function updateWorker(state, w, dt) {
     }
     return;
   }
-  // 閉店後、お客さんがいなくなって仕事も終わったら裏口から帰る
-  if (!workTime(state.clock) && !w.task && !w.queue.length && !state.customers.length) {
+  // 閉店後、お客さんがいなくなって仕事も終わったら裏口から帰る。シフトの時間が終わった人も、仕事が終わったら帰る
+  const leave = !workTime(state.clock) ? !state.customers.length : !onDuty(state, w);
+  if (leave && !w.task && !w.queue.length) {
     w.shift = 'leaving';
     w.sitting = false;
     w.path = [...findPath(L, w, L.backDoor), { ...L.backOutside }];
@@ -960,6 +982,7 @@ function stepClock(state, dt) {
   if (prev < FAST_START_MIN && next >= FAST_START_MIN && prev >= OPEN_MIN) next = FAST_START_MIN; // 23:00ちょうどで止めてレポートを出す
   if (next >= 1440) next -= 1440;
   state.clock = next;
+  state.clockDelta = fast ? 0 : next - prev;
   const crossed = (t) => prev < t && next >= t;
   if (prev < OPEN_MIN && next >= OPEN_MIN) {
     state.day += 1;
@@ -972,6 +995,32 @@ function stepClock(state, dt) {
     sendHomeCustomers(state);
   } else if (crossed(FAST_START_MIN)) {
     state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
+  }
+}
+
+// ───────── スタッフの稼働率と人件費 ─────────
+// 出勤している間(店に入っている間)だけ、稼働率の分母に入れ、シフトのある店では時給を払う。店長は対象外
+function trackStaff(state, dm) {
+  const slot = slotOf(state.clock);
+  const paid = shiftOn(state);
+  for (const w of state.workers) {
+    if (w.role === 'manager' || w.shift === 'off') continue;
+    if (paid) state.wageAcc += (WAGE[w.role] * dm) / 60;
+    if (w.shift !== 'on') continue;
+    const busy = w.task ? dm : 0;
+    const u = state.daily.util[w.role][slot];
+    u[0] += dm;
+    u[1] += busy;
+    const wu = (state.daily.wu[`${w.role}${w.index}`] ||= [0, 0]);
+    wu[0] += dm;
+    wu[1] += busy;
+  }
+  const whole = Math.floor(state.wageAcc);
+  if (whole > 0) {
+    state.wageAcc -= whole;
+    state.coins -= whole; // 払えないときは所持金がマイナス（赤字）になる
+    const ex = state.daily.expense;
+    ex.labor = (ex.labor || 0) + whole;
   }
 }
 
@@ -992,6 +1041,7 @@ function step(state, dt) {
   for (const c of state.customers) updateCustomer(state, c, dt);
   state.customers = state.customers.filter((c) => !c.remove);
   for (const w of state.workers) updateWorker(state, w, dt);
+  if (state.clockDelta > 0) trackStaff(state, state.clockDelta);
 
   for (const k of Object.keys(state.eqBusy)) {
     state.eqBusy[k] -= dt;

@@ -888,3 +888,31 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .eval-body { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .eval-body small { opacity: 0.7; }
 .eval-grant { margin-top: 2px; font-weight: 700; }
+
+/* シフト */
+.shiftpanel { max-width: 760px; }
+.shift-grid { display: grid; gap: 3px; align-items: center; margin: 8px 0; text-align: center; font-size: 12px; }
+.shift-h { font-size: 11px; opacity: 0.75; }
+.shift-h.now { font-weight: 800; color: var(--green); opacity: 1; }
+.shift-role { text-align: left; font-weight: 700; display: flex; flex-direction: column; line-height: 1.1; }
+.shift-role small { font-weight: 400; opacity: 0.65; }
+.shift-cell { display: flex; flex-direction: column; align-items: center; background: #f4efe2; border: 1px solid #d9d0b8; border-radius: 6px; padding: 1px 0; }
+.shift-cell.now { border-color: var(--green); background: #e9f3e4; }
+.shift-cell.zero b { color: #b3202a; }
+.shift-cell b { font-size: 16px; line-height: 1.2; }
+.shift-btn { width: 100%; min-height: 24px; padding: 0; font-size: 11px; background: transparent; border: 0; color: #2b2b33; }
+.shift-btn:disabled { opacity: 0.25; }
+
+/* 店舗情報の指標 */
+.si-sub { margin: 8px 0 4px; font-size: 12px; font-weight: 700; opacity: 0.8; }
+.heat { display: grid; gap: 2px; align-items: stretch; font-size: 11px; text-align: center; }
+.heat-h { opacity: 0.7; }
+.heat-day { padding: 2px 0; font-size: 11px; background: #f4efe2; border: 1px solid #d9d0b8; border-radius: 4px; }
+.heat-day.on { background: var(--green); color: #fff; border-color: var(--green); }
+.heat-c { min-height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 3px; font-variant-numeric: tabular-nums; color: #2b2b33; }
+.heat-c.on { outline: 2px solid #2b2b33; outline-offset: -1px; }
+.heat-role { text-align: left; font-size: 11px; font-weight: 700; display: flex; align-items: center; }
+.heat-n { display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; }
+.heat-n.bad { color: #b3202a; font-weight: 800; }
+.heat-legend { display: flex; align-items: center; gap: 4px; margin: 4px 0 6px; font-size: 11px; opacity: 0.75; }
+.heat-legend i { width: 16px; height: 10px; border-radius: 2px; display: inline-block; }
