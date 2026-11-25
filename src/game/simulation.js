@@ -467,9 +467,55 @@ const timeMult = (state, w, id) => skillTimeMult(skillLv(state, w, id)); // 作�
 const carryCap = (state, w, id) => skillLv(state, w, id); // 1回の往復で運べる数
 
 // 配膳（複数まとめて運ぶ）：消えた注文を外し、次に向かう注文(orderId)と手に持っている数を合わせる
+// 運べる数（配膳・片付けの能力Lv）に余裕があれば、取りに行く間に仕事を足す。
+// ホールスタッフは手つかずの分を拾い、店長は自分に指示済みの同じ種類の仕事（待ち行列）をまとめる。
+function absorbQueued(w, type, room, key, ids) {
+  for (const q of [...w.queue]) {
+    if (room <= 0) break;
+    if (q.type !== type) continue;
+    const add = q[key] || [];
+    if (!add.length || add.length > room) continue;
+    ids.push(...add);
+    room -= add.length;
+    w.queue.splice(w.queue.indexOf(q), 1);
+  }
+}
+
+function extendServe(state, w, t) {
+  const room = carryCap(state, w, 'serve') - t.orderIds.length;
+  if (room <= 0) return;
+  if (w.role === 'manager') return absorbQueued(w, 'serve', room, 'orderIds', t.orderIds);
+  state.orders
+    .filter((o) => o.status === 'ready' && !o.claimedBy && !t.orderIds.includes(o.id) && !findCustomer(state, o.customerId)?.trip && findCustomer(state, o.customerId))
+    .slice(0, room)
+    .forEach((o) => {
+      o.claimedBy = w.id;
+      t.orderIds.push(o.id);
+    });
+}
+
+function extendBus(state, w, t) {
+  const room = carryCap(state, w, 'bus') - t.seatIds.length - t.done;
+  if (room <= 0) return;
+  if (w.role === 'manager') return absorbQueued(w, 'bus', room, 'seatIds', t.seatIds);
+  const dist = (id) => {
+    const a = state.layout.seatMap[id].access;
+    return Math.hypot(a.x - w.x, a.y - w.y);
+  };
+  Object.keys(state.dirty)
+    .filter((sid) => !state.dirty[sid].claimedBy && !state.seatOcc[sid] && state.layout.seatMap[sid])
+    .sort((a, b) => dist(a) - dist(b)) // 近い席から
+    .slice(0, room)
+    .forEach((sid) => {
+      state.dirty[sid].claimedBy = w.id;
+      t.seatIds.push(sid);
+    });
+}
+
 function serveSync(state, w, t) {
   t.orderIds ||= [t.orderId];
   t.carried ||= [];
+  if (t.step === 'pickup') extendServe(state, w, t);
   t.orderIds = t.orderIds.filter((id) => {
     const o = findOrder(state, id);
     return !!o && !!findCustomer(state, o.customerId);
@@ -491,6 +537,7 @@ function busSync(state, w, t) {
   t.seatIds ||= [t.seatId];
   t.done ||= 0;
   if (t.step === 'pickup') {
+    extendBus(state, w, t);
     t.seatIds = t.seatIds.filter((id) => state.dirty[id]?.claimedBy === w.id && state.layout.seatMap[id]);
     if (t.seatIds.length) t.seatId = t.seatIds[0];
     else if (t.done > 0) t.step = 'wash';
