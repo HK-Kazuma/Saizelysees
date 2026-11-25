@@ -732,7 +732,9 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 }
 
 /* ───────── 閉店レポート ───────── */
-.modal.report { width: min(460px, 94vw); z-index: 30; }
+.modal.report { width: min(460px, 94vw); z-index: 30; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* レポート内は料理一覧を自然な高さで並べ、スクロールはモーダル全体に一本化する */
+.modal.report .recipe-list { flex: none; overflow-y: visible; }
 .report-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 12px 4px; }
 .report-summary div { background: var(--white); border: 2px solid var(--ink); padding: 4px 6px; text-align: center; display: flex; flex-direction: column; }
 .report-summary small { font-size: 10px; }
