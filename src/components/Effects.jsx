@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { tileToCss } from '../render/view.js';
 import DishIcon from './DishIcon.jsx';
-import { playAngrySfx } from '../audio/bgm.js';
+import { playAngrySfx, playCashSfx } from '../audio/bgm.js';
 
 // シミュレーションから届くイベントを、DOMのアニメーションに変換する
 export default function Effects({ store, toast }) {
@@ -13,6 +13,7 @@ export default function Effects({ store, toast }) {
     return store.onEvents((events) => {
       for (const e of events) {
         if (e.type === 'sale') {
+          playCashSfx(e.quality === 3); // お会計が完了した「ちゃキーン」
           const p = tileToCss(e.x, e.y, 26);
           const k = ++id.current;
           setFloats((f) => [...f, { k, x: p.x, y: p.y, text: `+¥${e.amount}`, sub: `+${e.xp}EXP`, cls: e.quality === 3 ? 'gold perfect' : 'gold' }]);
