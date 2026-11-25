@@ -143,7 +143,8 @@ export class Renderer {
     const wy = (cy * view.dpr) / view.k - view.oy;
     this.zoom = z;
     this.viewKey = '';
-    this.updateView(L);
+    this.updateView(L); // キャンバスの大きさを変えるので中身が消える → すぐ描き直す必要がある
+    this.dirty = true;
     view.ox = Math.round((cx * view.dpr) / view.k - wx);
     view.oy = Math.round((cy * view.dpr) / view.k - wy);
     this.clampView();
