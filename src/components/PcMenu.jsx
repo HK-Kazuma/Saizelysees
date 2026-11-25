@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { clockText } from '../game/state.js';
+import { clockText, shiftOn, fmtCoins } from '../game/state.js';
 import RecipeBook from './RecipeBook.jsx';
 import ShopPanel from './ShopPanel.jsx';
 import StoreInfo from './StoreInfo.jsx';
 import StaffSettings from './StaffSettings.jsx';
+import ShiftPanel from './ShiftPanel.jsx';
 
 // ドット絵風のアイコン（SVG）
 export function PcIcon({ size = 26 }) {
@@ -67,11 +68,26 @@ const StaffIcon = () => (
   </svg>
 );
 
+const ShiftIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true">
+    <rect x="1" y="1" width="14" height="14" fill="#2b1a14" />
+    <rect x="2" y="2" width="12" height="12" fill="#fbf3e0" />
+    <rect x="3" y="4" width="2" height="2" fill="#2f6b3a" />
+    <rect x="6" y="4" width="2" height="2" fill="#b3202a" />
+    <rect x="9" y="4" width="2" height="2" fill="#2f6b3a" />
+    <rect x="3" y="8" width="2" height="2" fill="#b3202a" />
+    <rect x="6" y="8" width="2" height="2" fill="#2f6b3a" />
+    <rect x="9" y="8" width="2" height="2" fill="#2f6b3a" />
+    <rect x="12" y="8" width="1" height="4" fill="#8a8a92" />
+  </svg>
+);
+
 const APPS = [
   { id: 'recipes', name: 'レシピ', Icon: BookIcon },
   { id: 'shop', name: 'ショップ', Icon: ShopIcon },
   { id: 'info', name: '店舗情報', Icon: ChartIcon },
   { id: 'staff', name: '従業員', Icon: StaffIcon },
+  { id: 'shift', name: 'シフト', Icon: ShiftIcon, needs: shiftOn }, // シフトのある店（草津〜）だけ
 ];
 
 // パソコン画面風のメニュー。開いている間はゲーム内の時間が止まる
@@ -93,7 +109,7 @@ export default function PcMenu({ state, act, onClose }) {
               <button className="pc-x" onClick={onClose} aria-label="とじる">×</button>
             </div>
             <div className="pc-desktop">
-              {APPS.map(({ id, name, Icon }) => (
+              {APPS.filter((a) => !a.needs || a.needs(state)).map(({ id, name, Icon }) => (
                 <button key={id} className="pc-app" onClick={() => setApp(id)}>
                   <Icon />
                   <span>{name}</span>
@@ -103,7 +119,7 @@ export default function PcMenu({ state, act, onClose }) {
             </div>
             <div className="pc-taskbar">
               <span className="pc-start">メニュー</span>
-              <span className="pc-tray">{state.day}日目 {clockText(state.clock)}　¥{state.coins.toLocaleString()}</span>
+              <span className="pc-tray">{state.day}日目 {clockText(state.clock)}　{fmtCoins(state.coins)}</span>
             </div>
           </div>
           <div className="pc-neck" />
@@ -113,6 +129,7 @@ export default function PcMenu({ state, act, onClose }) {
       {app === 'recipes' && <RecipeBook state={state} onClose={() => setApp(null)} />}
       {app === 'shop' && <ShopPanel state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'staff' && <StaffSettings state={state} act={act} onClose={() => setApp(null)} />}
+      {app === 'shift' && <ShiftPanel state={state} act={act} onClose={() => setApp(null)} />}
       {app === 'info' && <StoreInfo state={state} onClose={() => setApp(null)} />}
     </>
   );

@@ -105,6 +105,13 @@ export function applyDevAction(state, action) {
       state.clock = 20 * 60;
       return { ok: true };
     }
+    case 'DEV_STORE': {
+      // 店を切り替える（セーブは作り直さず、いまの状態のまま店だけ変える）。シフトなどの確認用
+      if (!STORE_MAP[action.id]) return { ok: false, msg: 'unknown store' };
+      state.storeId = action.id;
+      state.stage.startDay = state.day;
+      return { ok: true };
+    }
     case 'DEV_BEST':
       state.bestDaySales = action.amount;
       return { ok: true };

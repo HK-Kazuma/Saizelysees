@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { HALL_TASK_MAP, hallPrefOf, HALL_SKILLS, MANAGER_SKILLS, hallSkillOf, skillEffect, SKILL_MAX, SKILL_PRICE } from '../data/staffTasks.js';
 import { SPEED } from '../game/simulation.js';
+import { fmtCoins } from '../game/state.js';
 import { STAFF, staffLimit } from '../data/shop.js';
 import { getCharSprite } from '../render/sprites.js';
 import { playSwooshSfx } from '../audio/bgm.js';
@@ -112,7 +113,7 @@ export default function StaffSettings({ state, act, onClose }) {
         <div className="modal-head">
           <span className="modal-title">従業員</span>
           <span className="modal-coins">
-            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}　¥{state.coins.toLocaleString()}
+            {STAFF.map((s) => `${s.name.replace('スタッフ', '')} ${state.staff[s.id]}/${staffLimit(state, s.id)}`).join('　')}　{fmtCoins(state.coins)}
           </span>
           <button className="close-btn" onClick={onClose}>とじる</button>
         </div>
@@ -151,6 +152,10 @@ export default function StaffSettings({ state, act, onClose }) {
             <>
               <div className="st-stats">
                 <div className="si-stat"><small>移動の速さ</small><b>{SPEED[cur.role]}マス/秒</b></div>
+                {cur.role !== 'manager' && (() => {
+                  const u = state.daily.wu?.[`${cur.role}${cur.index}`];
+                  return <div className="si-stat"><small>今日の稼働率</small><b>{u && u[0] > 0 ? `${Math.round((u[1] / u[0]) * 100)}%` : '—'}</b></div>;
+                })()}
                 <div className="si-stat"><small>担当</small><b>{isMgr ? '店長' : cur.role === 'hall' ? 'ホール' : '調理'}</b></div>
               </div>
               {!skills && <div className="st-help">キッチンスタッフは、注文が入った料理を順番に調理します。調理の速さは設備のレベルで上がります（スタッフの強化はありません）。</div>}

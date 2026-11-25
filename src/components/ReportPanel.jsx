@@ -1,6 +1,7 @@
 import React from 'react';
 import { RECIPE_MAP } from '../data/recipes.js';
 import DishIcon from './DishIcon.jsx';
+import { fmtCoins, EXPENSE_CATS, sumExpense } from '../game/state.js';
 
 // 23:00に出る、その日のレポート。閉じるまでゲーム内の時間は止まる
 // 最終日の本部評価（ランク・達成率・次の店の開店資金）
@@ -40,8 +41,29 @@ export default function ReportPanel({ report, onClose, onNext }) {
           <div><small>売上</small><b>¥{report.sales.toLocaleString()}</b></div>
           <div><small>販売数</small><b>{total}品</b></div>
           <div><small>怒って帰った人</small><b>{report.angry}人</b></div>
-          <div><small>所持金</small><b>¥{report.coins.toLocaleString()}</b></div>
+          <div className={report.coins < 0 ? 'deficit' : ''}><small>所持金{report.coins < 0 && '（赤字）'}</small><b>{fmtCoins(report.coins)}</b></div>
         </div>
+        {/* 今日の収支：支払った人件費などを、売上から引いた形で見せる */}
+        {(report.hasWage || sumExpense(report.expense) > 0) && (
+          <div className="pl">
+            <div className="pl-row"><span>売上</span><b>{fmtCoins(report.sales)}</b></div>
+            {report.hasWage && (
+              <div className="pl-row labor">
+                <span>人件費（閉店で支払い）<small>のべ {Math.round(report.staffMin / 60)}人時{report.sales > 0 && `・売上の ${Math.round((report.labor / report.sales) * 100)}%`}</small></span>
+                <b>-{fmtCoins(report.labor)}</b>
+              </div>
+            )}
+            {EXPENSE_CATS.filter((c) => c.id !== 'labor' && (report.expense[c.id] || 0) > 0).map((c) => (
+              <div key={c.id} className="pl-row"><span>{c.name}</span><b>-{fmtCoins(report.expense[c.id])}</b></div>
+            ))}
+            <div className={`pl-row total ${report.sales - sumExpense(report.expense) < 0 ? 'deficit' : ''}`}>
+              <span>今日の収支</span><b>{fmtCoins(report.sales - sumExpense(report.expense))}</b>
+            </div>
+          </div>
+        )}
+        {report.staffMin > 0 && (
+          <div className="stage-line"><span>人時売上高 ¥{Math.round(report.sales / (report.staffMin / 60)).toLocaleString()}（スタッフ1人が1時間で生む売上）</span></div>
+        )}
         {stage && !stage.done && (
           <div className="stage-line">
             <span>{stage.city}店 {stage.dayNo}/{stage.days}日</span>

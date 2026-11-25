@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { appeal, EXPENSE_CATS, sumExpense } from '../game/state.js';
+import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn } from '../game/state.js';
 import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
 const TABS = [
@@ -7,6 +7,7 @@ const TABS = [
   { id: 'sales', name: '売上' },
   { id: 'graph', name: 'グラフ' },
   { id: 'expense', name: '出費' },
+  { id: 'metrics', name: '指標' },
 ];
 const yen = (n) => `¥${Math.round(n).toLocaleString()}`;
 
@@ -15,7 +16,8 @@ function buildRecords(state) {
   const closed = state.history.some((h) => h.day === state.day); // 閉店後〜翌開店までは次の日の記録
   const today = closed ? state.day + 1 : state.day;
   const d = state.daily;
-  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, today: true }];
+  const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
+  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, wait: d.wait, util: d.util, staffMin, today: true }];
 }
 
 function DayPicker({ records, sel, setSel }) {
@@ -28,6 +30,70 @@ function DayPicker({ records, sel, setSel }) {
       </select>
       <button className="tab" disabled={i >= records.length - 1} onClick={() => setSel(records[i + 1].day)}>▶</button>
     </div>
+  );
+}
+
+// ───────── 指標（待ち時間ヒートマップ・スタッフの稼働率・人時売上高） ─────────
+const waitAvg = (w) => (w && w[0] ? (w[1] + w[2]) / w[0] : null); // お客さん1人あたりの待ち時間（秒）＝注文待ち＋料理待ち
+const waitColor = (a) => (a == null ? '#e8e4d8' : `hsl(${Math.round(120 - Math.min(1, a / 100) * 120)}, 62%, 64%)`);
+const utilPct = (u) => (u && u[0] > 0 ? (u[1] / u[0]) * 100 : null);
+const utilColor = (p) => (p == null ? '#e8e4d8' : `hsl(210, 70%, ${Math.round(92 - Math.min(100, p) * 0.45)}%)`);
+const sumUtil = (arr) => (arr || []).reduce((a, u) => [a[0] + u[0], a[1] + u[1]], [0, 0]);
+
+export function Metrics({ state, records, sel, setSel, cur }) {
+  const rows = records.slice(-7); // 直近7日（古い記録には時間帯の指標がないことがある）
+  const labor = cur.expense.labor || 0;
+  const hours = (cur.staffMin || 0) / 60;
+  const k = utilPct(sumUtil(cur.util?.kitchen));
+  const h = utilPct(sumUtil(cur.util?.hall));
+  const pct = (v) => (v == null ? '—' : `${Math.round(v)}%`);
+  return (
+    <>
+      <div className="si-sub">待ち時間（お客さん1人あたり。注文待ち＋料理待ち）／行をタップでその日を見る</div>
+      <div className="heat" style={{ gridTemplateColumns: `3.4em repeat(${SLOTS}, minmax(0, 1fr))` }}>
+        <span />
+        {Array.from({ length: SLOTS }, (_, i) => <span key={i} className="heat-h">{10 + i}</span>)}
+        {rows.map((r) => (
+          <React.Fragment key={r.day}>
+            <button className={`heat-day ${r.day === sel ? 'on' : ''}`} onClick={() => setSel(r.day)}>{r.day}日{r.today ? '*' : ''}</button>
+            {Array.from({ length: SLOTS }, (_, i) => {
+              const a = waitAvg(r.wait?.[i]);
+              return <span key={i} className={`heat-c ${r.day === sel ? 'on' : ''}`} style={{ background: waitColor(a) }}>{a == null ? '' : Math.round(a)}</span>;
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+      <div className="heat-legend">
+        <span>短い</span><i style={{ background: waitColor(0) }} /><i style={{ background: waitColor(33) }} /><i style={{ background: waitColor(66) }} /><i style={{ background: waitColor(100) }} /><span>長い（数字は秒、*は進行中）</span>
+      </div>
+
+      <div className="si-sub">{cur.day}日目の時間帯ごとの様子</div>
+      <div className="heat" style={{ gridTemplateColumns: `4.4em repeat(${SLOTS}, minmax(0, 1fr))` }}>
+        <span />
+        {Array.from({ length: SLOTS }, (_, i) => <span key={i} className="heat-h">{10 + i}</span>)}
+        <span className="heat-role">来店</span>
+        {Array.from({ length: SLOTS }, (_, i) => <span key={i} className="heat-n">{cur.wait?.[i]?.[0] || ''}</span>)}
+        <span className="heat-role">怒って帰った</span>
+        {Array.from({ length: SLOTS }, (_, i) => <span key={i} className="heat-n bad">{cur.wait?.[i]?.[3] || ''}</span>)}
+        {['kitchen', 'hall'].map((role) => (
+          <React.Fragment key={role}>
+            <span className="heat-role">{role === 'kitchen' ? 'キッチン稼働' : 'ホール稼働'}</span>
+            {Array.from({ length: SLOTS }, (_, i) => {
+              const p = utilPct(cur.util?.[role]?.[i]);
+              return <span key={i} className="heat-c" style={{ background: utilColor(p) }}>{p == null ? '' : Math.round(p)}</span>;
+            })}
+          </React.Fragment>
+        ))}
+      </div>
+      <div className="heat-legend"><span>稼働率＝出勤している間に仕事をしていた割合（%）。低い時間は人が余っています</span></div>
+
+      <div className="si-grid">
+        <Stat label="人時売上高" value={hours > 0 ? yen(cur.sales / hours) : '—'} sub="スタッフ1人が1時間で生む売上" />
+        <Stat label="キッチン稼働率" value={pct(k)} />
+        <Stat label="ホール稼働率" value={pct(h)} />
+        {wageOn(state) && <Stat label="人件費" value={yen(labor)} sub={cur.sales > 0 ? `売上の ${Math.round((labor / cur.sales) * 100)}%` : null} />}
+      </div>
+    </>
   );
 }
 
@@ -136,6 +202,13 @@ export default function StoreInfo({ state, onClose }) {
                 <b>{cur.day}日目</b>　売上 <span className="g">{yen(cur.sales)}</span>　出費 <span className="r">{yen(curExp)}</span>
               </div>
               {bestLine}
+            </>
+          )}
+
+          {tab === 'metrics' && (
+            <>
+              {dayPicker}
+              <Metrics state={state} records={records} sel={sel} setSel={setSel} cur={cur} />
             </>
           )}
 

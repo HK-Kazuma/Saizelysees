@@ -2,7 +2,7 @@
 import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS, MANAGER_SKILLS } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory } from './state.js';
+import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory, defaultShift, shiftOn, SLOTS } from './state.js';
 import { STORE_MAP, nextStoreOf, startGrants } from '../data/stores.js';
 import { applyDevAction } from '../dev/presets.js';
 
@@ -22,7 +22,7 @@ function spend(state, price, cat) {
 function closeReport(state) {
   const r = state.report;
   if (r && !state.history.some((h) => h.day === r.day)) {
-    state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
+    state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {}, wait: r.wait, util: r.util, staffMin: r.staffMin });
     state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
     compactHistory(state);
     const st = state.stage;
@@ -42,7 +42,11 @@ function closeReport(state) {
 
 const manager = (state) => state.workers.find((w) => w.role === 'manager');
 
+// ショップで買う操作。所持金がマイナス（赤字）の間は利用できない
+const SHOP_ACTIONS = ['BUY_EQUIP', 'UPGRADE_EQUIP', 'HIRE', 'BUY_DECOR', 'BUY_TABLE', 'EXPAND'];
+
 export function applyAction(state, action) {
+  if (SHOP_ACTIONS.includes(action.type) && state.coins < 0) return fail('赤字のためショップは利用できません');
   // 開発者用の操作（本番ビルドでは DEV が false になり、ここも presets.js も取り除かれる）
   if (action.type.startsWith('DEV_')) return import.meta.env.DEV ? applyDevAction(state, action) : fail('unknown action');
   switch (action.type) {
@@ -113,6 +117,16 @@ export function applyAction(state, action) {
       state.events.push({ type: 'purchase', text: `店長の${def.name}が Lv${lv + 1} になりました` });
       return okMsg();
     }
+    case 'SET_SHIFT': {
+      // 時間帯(slot)ごとの出勤人数を決める。雇っている全員なら null（あとで増員したら自動で入る）に戻す
+      if (!shiftOn(state) || !state.shift[action.role] || !(action.slot >= 0 && action.slot < SLOTS)) return fail('シフトを変えられません');
+      const n = Math.max(0, Math.min(state.staff[action.role], Math.round(action.count)));
+      state.shift[action.role][action.slot] = n === state.staff[action.role] ? null : n;
+      return okMsg();
+    }
+    case 'RESET_SHIFT':
+      state.shift = defaultShift();
+      return okMsg();
     case 'COPY_HALL_TASKS': {
       // この人の設定を、ホールスタッフ全員にコピーする
       const src = hallPrefOf(state, action.staff);
