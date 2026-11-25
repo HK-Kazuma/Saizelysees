@@ -294,6 +294,30 @@ function noise(time, dur, gain, hp) {
   src.start(time);
 }
 
+// お会計が完了したときの「ちゃキーン！」（レジの音）。
+// 「ちゃ」＝レジを打つ短い金属音、「キーン」＝高い鐘のような余韻（倍音を重ねて金属らしくする）。★3の料理は少しきらびやか
+let lastCashAt = 0;
+export function playCashSfx(perfect = false) {
+  if (!clickSfxOn) return;
+  const c = ensureCtx();
+  if (!c) return;
+  const now = c.currentTime;
+  if (now - lastCashAt < 0.08) return; // 同時に会計が重なっても割れないように
+  lastCashAt = now;
+  const t = now + 0.005;
+  // ちゃ
+  noise(t, 0.06, 0.32, 3000);
+  tone(1250, t, 0.05, 'square', 0.16);
+  tone(830, t + 0.015, 0.05, 'square', 0.12);
+  // キーン（G6 の鐘に、非整数倍の倍音を重ねる）
+  const k = t + 0.07;
+  tone(1568, k, 0.7, 'sine', 0.34);
+  tone(1568 * 2.76, k, 0.35, 'sine', 0.1);
+  tone(1568 * 5.4, k, 0.18, 'sine', 0.05);
+  tone(2093, k + 0.06, 0.7, 'sine', 0.22); // 少し上の音が追いかける
+  if (perfect) tone(3136, k + 0.12, 0.5, 'sine', 0.16); // ★3：きらっと一段高い音
+}
+
 // 業務の入れ替え「シュッ」（小さな風のような音）
 export function playSwooshSfx() {
   if (!clickSfxOn) return;
