@@ -42,19 +42,19 @@ export const RECIPES = [
   {
     id: 'parma_pasta', name: 'パルマ風パスタ', cat: 'pasta', price: 400, lv: 6, req: ['boiler', 'stove'], station: 'stove',
     ingredients: '麺、トマトソース 1杯、パンチェッタ 1掴み、粉チーズ 1杯',
-    icon: { shape: 'pasta', a: '#d9452b', b: '#f2b8a0' },
+    icon: { shape: 'parma_pasta', a: '#d9452b', b: '#f2b8a0' },
     steps: [boil(), add('トマトソース', '1杯'), add('パンチェッタ', '1掴み'), heat(), toss(), plate(), top('粉チーズ', '1杯')],
   },
   {
     id: 'peperoncino', name: 'ペペロンチーノ', cat: 'pasta', price: 300, lv: 4, req: ['boiler', 'stove'], station: 'stove',
     ingredients: '麺、塩オイルソース 1杯、ガーリックスライス 1杯、唐辛子（ペッパー） 1杯、パセリ',
-    icon: { shape: 'pasta', a: '#f2d27a', b: '#c8281e' },
+    icon: { shape: 'peperoncino', a: '#f2d27a', b: '#c8281e' },
     steps: [boil(), add('塩オイルソース', '1杯'), add('ガーリックスライス', '1杯'), add('唐辛子', '1杯'), heat(), plate(), pour(), top('パセリ')],
   },
   {
     id: 'carbonara', name: 'カルボナーラ', cat: 'pasta', price: 450, lv: 5, req: ['boiler', 'stove', 'bath'], station: 'stove',
     ingredients: '麺、カルボナーラソース 1パック、粉チーズ 1杯、ブラックペッパー',
-    icon: { shape: 'pasta', a: '#f6e3a2', b: '#3a3a3a' },
+    icon: { shape: 'carbonara', a: '#f6e3a2', b: '#3a3a3a' },
     steps: [boil(), warm(1.6, 'カルボナーラのパック'), add('カルボナーラソース', '1パック'), heat(), plate(), pour(), top('粉チーズ', '1杯'), top('ブラックペッパー')],
   },
   {
@@ -66,25 +66,25 @@ export const RECIPES = [
   {
     id: 'ikasumi_pasta', name: 'イカスミのパスタ', cat: 'pasta', price: 450, lv: 7, req: ['boiler', 'stove'], station: 'stove',
     ingredients: '麺、イカ墨のソース、イカ、パセリ 1杯',
-    icon: { shape: 'pasta', a: '#2a2630', b: '#f4f0e8' },
+    icon: { shape: 'ikasumi', a: '#2a2630', b: '#f4f0e8' },
     steps: [boil(), add('イカ墨のソース'), add('イカ'), heat(), toss(), plate(), top('パセリ', '1杯')],
   },
   {
     id: 'kinoko_cream', name: 'きのこのクリームパスタ', cat: 'pasta', price: 500, lv: 8, req: ['boiler', 'stove'], station: 'stove',
     ingredients: '麺、ホワイトソース 1杯、ほうれん草 1掴み、パンチェッタ 1掴み、きのこ 1掴み、塩オイルソース 1杯、粉チーズ 1杯、ブラックペッパー',
-    icon: { shape: 'pasta', a: '#f4efe0', b: '#7a5a3a' },
+    icon: { shape: 'kinoko', a: '#f4efe0', b: '#7a5a3a' },
     steps: [boil(), add('ホワイトソース', '1杯'), add('ほうれん草', '1掴み'), add('パンチェッタ', '1掴み'), add('きのこ', '1掴み'), add('塩オイルソース', '1杯'), heat(), plate(), pour(), top('粉チーズ', '1杯'), top('ブラックペッパー')],
   },
   {
     id: 'penne_arrabbiata', name: 'ペンネアラビアータ', cat: 'pasta', price: 400, lv: 9, req: ['boiler', 'stove'], station: 'stove',
     ingredients: 'ペンネ、トマトソース 1杯、ガーリックスライス 1杯、唐辛子（ペッパー） 1杯、パセリ',
-    icon: { shape: 'penne', a: '#d23a22', b: '#f2c060' },
+    icon: { shape: 'penne_arrabbiata', a: '#d23a22', b: '#f2c060' },
     steps: [boil('ペンネ'), add('トマトソース', '1杯'), add('ガーリックスライス', '1杯'), add('唐辛子', '1杯'), heat(), toss('ペンネ'), plate(), top('パセリ')],
   },
   {
     id: 'spinach_saute', name: 'ほうれん草のソテー', cat: 'pasta', price: 250, lv: 10, req: ['stove'], station: 'stove',
     ingredients: 'ほうれん草 2掴み、パンチェッタ 1掴み、ソテーソース 1パック',
-    icon: { shape: 'plate', a: '#3f8a3a', b: '#e9a58a' },
+    icon: { shape: 'spinach_saute', a: '#3f8a3a', b: '#e9a58a' },
     steps: [add('ほうれん草', '2掴み'), add('パンチェッタ', '1掴み'), add('ソテーソース', '1パック'), heat(), plate('ソテー')],
   },
 

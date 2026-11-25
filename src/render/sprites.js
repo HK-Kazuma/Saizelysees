@@ -2,7 +2,7 @@
 // 文字1つ = 1ピクセル。パレットの文字を差し替えて髪色や服の色を変える。
 import { makeSprite, flipped } from './pixel.js';
 import { RECIPES } from '../data/recipes.js';
-import { TARAKO_PASTA_HI, MEAT_PASTA_HI } from './dishArt.js';
+import { TARAKO_PASTA_HI, MEAT_PASTA_HI, PEPERONCINO_HI, CARBONARA_HI, PARMA_PASTA_HI, IKASUMI_PASTA_HI, KINOKO_CREAM_HI, PENNE_ARRABBIATA_HI, SPINACH_SAUTE_HI } from './dishArt.js';
 
 const OUT = '#2b1a14';
 
@@ -147,6 +147,20 @@ const SHAPES = {
   tarako: ['............', '.....nnn....', '....nNnnN...', '..yynnNnyy..', '.yyqyyyqyyy.', '.yqyyYqyyYy.', 'eeyYyyyYyyee', '.efeeeeeeee.', '..EEEEEEEE..'],
   // ミートパスタ：木の器・赤橙の麺とソース・中央に粉チーズ
   meat_pasta: ['............', '....uuvu....', '..uuvjjjuu..', '.uvujjkjluu.', '.uuvjkjuuvu.', '.vuuvuuvuuv.', 'eeuvuuvuuvee', '.efeeeeeeee.', '..EEEEEEEE..'],
+  // ペペロンチーノ：木の器いっぱいに麺を盛る。唐辛子・ガーリック入り
+  peperoncino: ['............', '...yyayyy...', '.yyayybyyay.', 'yayybyayyayy', '.yyayyabyyy.', 'eyayybyayyae', 'eeyayyabyyee', '.efeeeeeeee.', '..EEEEEEEE..'],
+  // カルボナーラ：明るい木の皿・クリーム色の麺・ベーコン・粉チーズと黒胡椒
+  carbonara: ['............', '....mmmm....', '..mmCCCCmm..', '.mmCCKCCmmM.', '.mBBmCKmmBm.', '.mmmBBBmmmM.', 'LLmBmmmMmmLL', '.LQQQQQQQQL.', '..QQQQQQQQ..'],
+  // パルマ風パスタ：タイル縁の白い深皿・トマト色の麺・中央に粉チーズ
+  parma_pasta: ['............', '..wwwwwwww..', '.wwssxxsswZ.', '.wssxxxxRsw.', 'zwsRsxsssSsw', 'wsSsRssSssRw', 'wwsSsssRsSww', '.wZwwwwwwzW.', '..WWWWWWWW..'],
+  // イカスミのパスタ：白い深皿・黒褐色の麺・イカの輪切り
+  ikasumi: ['............', '..wwwwwwww..', '.whAhFFhAhw.', '.hAFHFhhAFh.', 'whhFHFhAhJhw', 'wFHFhAhhFHFw', 'wwFFhJhAhFww', '.wwwwwwwwww.', '..WWWWWWWW..'],
+  // きのこのクリームパスタ：白い深皿・クリームソース・ベーコン・ほうれん草・粉チーズ
+  kinoko: ['............', '..wwwwwwww..', '.wGIxxxxGPw.', '.wIxxKxxIIw.', 'wGPGxxxGIIGw', 'wUGIIIIGPPGw', 'wwGPPGGUUGww', '.wwwwwwwwww.', '..WWWWWWWW..'],
+  // ペンネアラビアータ：白い深皿・赤橙のペンネ・パセリ
+  penne_arrabbiata: ['............', '.wwwwwwwwww.', '..wwwwwwww..', '.wsRsSRsSsw.', 'wsRSsRsJsRsw', 'wRsSRsSsRsSw', 'wwSsRsSRsSww', '.wwwwwwwwww.', '..WWWWWWWW..'],
+  // ほうれん草のソテー：縁がピンクの白い皿・濃い緑のほうれん草・ベーコン
+  spinach_saute: ['............', '..XXXXXXXX..', '.XwwwwwwwwX.', '.XwNnNgNnwX.', 'XwNgqqNgNnwX', 'XwnNgNqNgNwX', '.XwwNnNnNwX.', '..XwwwwwwX..', '...XXXXXX...'],
   pasta: ['............', '....yyyy....', '..yyaaaayy..', '.yaababaay..', '.yaaaaaaby..', 'wwyyaaaayyww', 'wwwyyyyyywww', '.wwwwwwwwww.', '..WWWWWWWW..'],
   penne: ['............', '....ybyy....', '..yybaaayy..', '.yaayaayaay.', '.yayaabaayy.', 'wwyyaayayyww', 'wwwyyyyyywww', '.wwwwwwwwww.', '..WWWWWWWW..'],
   plate: ['............', '............', '....abab....', '..aabaabaa..', '.abaabbaaba.', 'wwaaaaaaaaww', 'wwwaaaaaawww', '.wwwwwwwwww.', '..WWWWWWWW..'],
@@ -185,13 +199,18 @@ export function getDishSprite(recipe) {
     n: '#1c2822', N: '#34503e',
     e: '#b9743a', E: '#7a4a24', f: '#d89a5a',
     u: '#f0a84c', v: '#c8641f', j: '#fffbea', k: '#e8dcae', l: '#4f8032',
+    m: '#f6e4b4', M: '#d8c078', B: '#d88aa0', C: '#ffffff', K: '#3a2e2a', L: '#e2c58c', Q: '#c29a62',
+    s: '#e8602a', S: '#b83a1a', R: '#f89048', x: '#fffaf0', z: '#e4c898', Z: '#f2e08a',
+    h: '#4e3626', A: '#8a6a44', F: '#f0d4bc', H: '#26190f', J: '#78a83e',
+    G: '#f6ecc8', I: '#e8805a', P: '#3a7a34', U: '#d8bc94',
+    X: '#d8a08c',
   });
   iconCache.set(recipe.id, cv);
   return cv;
 }
 
 // 高精細版（UI用）。用意がある料理だけ。無ければ null
-const HI_ART = { tarako: TARAKO_PASTA_HI, meat_pasta: MEAT_PASTA_HI };
+const HI_ART = { tarako: TARAKO_PASTA_HI, meat_pasta: MEAT_PASTA_HI, peperoncino: PEPERONCINO_HI, carbonara: CARBONARA_HI, parma_pasta: PARMA_PASTA_HI, ikasumi: IKASUMI_PASTA_HI, kinoko: KINOKO_CREAM_HI, penne_arrabbiata: PENNE_ARRABBIATA_HI, spinach_saute: SPINACH_SAUTE_HI };
 export function hasHiRes(recipe) {
   return !!HI_ART[recipe.icon.shape];
 }
