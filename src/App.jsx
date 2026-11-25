@@ -148,7 +148,7 @@ export default function App() {
       {modal === 'audio' && <AudioSettings onClose={() => setModal(null)} />}
       {modal === 'settings' && <Settings state={state} act={act} onClose={() => setModal(null)} />}
 
-      {state.report && <ReportPanel report={state.report} onClose={() => act({ type: 'CLOSE_REPORT' })} />}
+      {state.report && <ReportPanel report={state.report} onClose={() => act({ type: 'CLOSE_REPORT' })} onNext={() => act({ type: 'OPEN_NEXT_STORE' })} />}
 
       <div className="toasts">
         {toasts.map((t) => (

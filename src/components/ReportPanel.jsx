@@ -3,8 +3,32 @@ import { RECIPE_MAP } from '../data/recipes.js';
 import DishIcon from './DishIcon.jsx';
 
 // 23:00に出る、その日のレポート。閉じるまでゲーム内の時間は止まる
-export default function ReportPanel({ report, onClose }) {
+// 最終日の本部評価（ランク・達成率・次の店の開店資金）
+function Evaluation({ stage }) {
+  const ev = stage.evaluation;
+  const g = ev.grants;
+  return (
+    <div className="eval">
+      <div className={`eval-rank rank-${ev.rank}`}>{ev.rank}</div>
+      <div className="eval-body">
+        <b>本部評価</b>
+        <div>目標の {Math.round(ev.rate * 100)}%（点数 ¥{ev.score.toLocaleString()}）</div>
+        {stage.angry > 0 && <small>怒って帰った {stage.angry}人ぶんを減点</small>}
+        {ev.nextCity && (
+          <div className="eval-grant">
+            {ev.nextCity}の開店資金：＋¥{(g.rank + g.pioneer).toLocaleString()}
+            <small>（評価 ¥{g.rank.toLocaleString()}{g.pioneer > 0 && `／先行特典 ¥${g.pioneer.toLocaleString()}`}）</small>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ReportPanel({ report, onClose, onNext }) {
   const total = report.items.reduce((s, it) => s + it.n, 0);
+  const stage = report.stage;
+  const ev = stage?.evaluation;
   return (
     <div className="modal-back">
       <div className="modal report" onClick={(e) => e.stopPropagation()}>
@@ -18,6 +42,14 @@ export default function ReportPanel({ report, onClose }) {
           <div><small>怒って帰った人</small><b>{report.angry}人</b></div>
           <div><small>所持金</small><b>¥{report.coins.toLocaleString()}</b></div>
         </div>
+        {stage && !stage.done && (
+          <div className="stage-line">
+            <span>{stage.city}店 {stage.dayNo}/{stage.days}日</span>
+            <span className="stage-bar"><i style={{ width: `${Math.min(100, (stage.sales / stage.goal) * 100)}%` }} /></span>
+            <span>累計 ¥{stage.sales.toLocaleString()} / 目標 ¥{stage.goal.toLocaleString()}</span>
+          </div>
+        )}
+        {ev && <Evaluation stage={stage} />}
         <div className="report-title">売れた料理</div>
         <div className="recipe-list">
           {report.items.length === 0 && <div className="report-empty">今日は売れた料理がありませんでした</div>}
@@ -36,7 +68,11 @@ export default function ReportPanel({ report, onClose }) {
           })}
         </div>
         <div className="report-foot">
-          <button className="hud-btn primary" onClick={onClose}>明日へ</button>
+          {ev?.nextCity ? (
+            <button className="hud-btn primary" onClick={onNext}>{ev.nextCity}に出店する</button>
+          ) : (
+            <button className="hud-btn primary" onClick={onClose}>{ev ? 'つづける' : '明日へ'}</button>
+          )}
         </div>
       </div>
     </div>

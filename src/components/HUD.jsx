@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { xpToNext, appeal, clockText, isNight } from '../game/state.js';
 import { STORE_SIZES } from '../data/shop.js';
+import { STORE_MAP } from '../data/stores.js';
 
 export default function HUD({ state, act, onOpen }) {
   const need = xpToNext(state.level);
   const pct = Math.min(100, (state.xp / need) * 100);
   const seats = state.layout.seats.length;
+  const store = STORE_MAP[state.storeId];
+  const dayNo = state.day - state.stage.startDay + 1;
   const guests = state.customers.filter((c) => c.state !== 'leaving').length;
 
   // 所持金が増えたらポンと弾ませる
@@ -25,10 +28,10 @@ export default function HUD({ state, act, onOpen }) {
     <header className="hud">
       <div className="logo" onClick={() => onOpen('settings')} title="メニュー">
         <span className="logo-main">Saizelysees</span>
-        <span className="logo-sub">{STORE_SIZES[state.sizeIdx].name}</span>
+        <span className="logo-sub">{store ? `${store.city}・` : ''}{STORE_SIZES[state.sizeIdx].name}</span>
       </div>
       <div className="hud-chip clock" title="ゲーム内の時刻（10:00開店 / 21:30ラストオーダー / 22:00閉店）">
-        <span className="day">{state.day}日目</span>
+        <span className="day">{store && !state.stage.done ? `${Math.min(dayNo, store.days)}/${store.days}日目` : `${state.day}日目`}</span>
         <ClockIcon clock={Math.floor(state.clock / 10) * 10} />
         <span className="time">{clockText(state.clock)}</span>
         {isNight(state.clock) && <MoonIcon />}

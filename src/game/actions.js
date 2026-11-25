@@ -2,7 +2,8 @@
 import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS, MANAGER_SKILLS } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave, emptyDaily, drinkCap, compactHistory } from './state.js';
+import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory } from './state.js';
+import { STORE_MAP, nextStoreOf, startGrants } from '../data/stores.js';
 import { applyDevAction } from '../dev/presets.js';
 
 const fail = (msg) => ({ ok: false, msg });
@@ -15,6 +16,28 @@ function spend(state, price, cat) {
   const ex = (state.daily.expense ||= {});
   ex[cat] = (ex[cat] || 0) + price;
   return true;
+}
+
+// 閉店レポートを閉じる処理：その日の記録を残し、ステージの累計に足す。最終日なら評価を確定する
+function closeReport(state) {
+  const r = state.report;
+  if (r && !state.history.some((h) => h.day === r.day)) {
+    state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
+    state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
+    compactHistory(state);
+    const st = state.stage;
+    st.sales += r.sales;
+    st.angry += r.angry;
+    st.served += r.served;
+    const ev = r.stage?.evaluation;
+    if (ev) {
+      st.done = true;
+      st.result = { rank: ev.rank, rate: ev.rate, sales: r.stage.sales, angry: r.stage.angry };
+      state.storeRecords[state.storeId] = { ...st.result, days: r.stage.days };
+    }
+  }
+  state.report = null;
+  state.daily = emptyDaily();
 }
 
 const manager = (state) => state.workers.find((w) => w.role === 'manager');
@@ -236,16 +259,27 @@ export function applyAction(state, action) {
     }
 
     // ── その他 ──
-    case 'CLOSE_REPORT': {
-      const r = state.report;
-      // その日の記録を残す（店舗情報の売上・出費グラフ用）
-      if (r && !state.history.some((h) => h.day === r.day)) {
-        state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {} });
-        state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
-        compactHistory(state);
-      }
-      state.report = null;
-      state.daily = emptyDaily();
+    case 'CLOSE_REPORT':
+      closeReport(state);
+      return okMsg();
+    case 'OPEN_NEXT_STORE': {
+      // 最終日の評価のあと、次の店に出店する。いまの店のセーブは残し、時間を止めたままにする
+      const ev = state.report?.stage?.evaluation;
+      const next = ev && nextStoreOf(state.storeId);
+      if (!next) return fail('出店できません');
+      closeReport(state);
+      saveGame(state); // いまの店を、最終の状態で保存する
+      const grants = startGrants(ev.rank, state.bestDaySales);
+      const bonus = grants.rank + grants.pioneer;
+      const fresh = createInitialState();
+      // 会社全体のものは引き継ぐ。店舗のものは作り直す
+      Object.assign(fresh, { managerSkills: state.managerSkills, bestDaySales: state.bestDaySales, storeRecords: state.storeRecords, storeId: next.id });
+      fresh.coins += bonus;
+      const speed = state.speed;
+      Object.keys(state).forEach((k) => delete state[k]);
+      Object.assign(state, fresh, { speed });
+      syncWorkers(state);
+      state.events.push({ type: 'expand', text: `${next.city}に出店しました！${bonus ? `（開店資金 +¥${bonus.toLocaleString()}）` : ''}` });
       return okMsg();
     }
     case 'SET_PAUSED': // メニューを開いている間は時間を止める

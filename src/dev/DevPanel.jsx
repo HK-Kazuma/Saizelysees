@@ -3,7 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { RECIPES } from '../data/recipes.js';
 import { PRESETS, CLOCKS } from './presets.js';
 import { PerfBadge } from './FpsBadge.jsx';
-import { COMPANY_KEY, OLD_SAVE_KEY, storeKey, FIRST_STORE } from '../game/state.js';
+import { COMPANY_KEY, OLD_SAVE_KEY, storeKey } from '../game/state.js';
+import { STORES } from '../data/stores.js';
 import { THEME_MODES, getThemeMode, setThemeMode } from '../render/themes.js';
 import './devpanel.css';
 
@@ -91,17 +92,29 @@ export default function DevPanel({ state, act }) {
                   return;
                 }
                 localStorage.removeItem(COMPANY_KEY);
-                localStorage.removeItem(storeKey(FIRST_STORE));
+                STORES.forEach((s) => localStorage.removeItem(storeKey(s.id)));
                 localStorage.setItem(OLD_SAVE_KEY, oldSave);
                 location.reload(); // 起動時に v1 → v2 の移行が走る
               }}
             >貼ったセーブで移行を試す</button>
             <button onClick={() => { navigator.clipboard?.writeText(`${localStorage.getItem(COMPANY_KEY)}
-${localStorage.getItem(storeKey(FIRST_STORE))}`); setSaveMsg('会社・店舗のセーブをコピーしました'); }}>今のv2セーブをコピー</button>
+${localStorage.getItem(storeKey(state.storeId))}`); setSaveMsg('会社・店舗のセーブをコピーしました'); }}>今のv2セーブをコピー</button>
             {saveMsg && <span>{saveMsg}</span>}
           </div>
         </>
       )}
+
+      <h4>店舗ステージ（{state.storeId} {state.day - state.stage.startDay + 1}日目・累計¥{state.stage.sales.toLocaleString()}）</h4>
+      <div className="dev-row">
+        <button onClick={() => run({ type: 'DEV_STAGE', rate: 1.6 })}>最終日(S)</button>
+        <button onClick={() => run({ type: 'DEV_STAGE', rate: 1.1 })}>最終日(A)</button>
+        <button onClick={() => run({ type: 'DEV_STAGE', rate: 0.8 })}>最終日(B)</button>
+        <button onClick={() => run({ type: 'DEV_STAGE', rate: 0.3 })}>最終日(C)</button>
+        <button onClick={() => run({ type: 'DEV_STAGE', rate: 1.0, angry: 40 })}>最終日(怒40人)</button>
+      </div>
+      <div className="dev-row">
+        {[0, 5000, 10000, 20000].map((n) => <button key={n} onClick={() => run({ type: 'DEV_BEST', amount: n })}>最高売上¥{n.toLocaleString()}</button>)}
+      </div>
 
       <h4>時刻・数値</h4>
         <div className="dev-row">
