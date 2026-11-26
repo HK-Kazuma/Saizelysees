@@ -150,7 +150,7 @@ export function stageSummary(state, today = { sales: 0, angry: 0 }) {
   const dayNo = state.day - st.startDay + 1;
   const sales = st.sales + today.sales;
   const angry = st.angry + today.angry;
-  // 期間(14日)を過ぎても、日数は数え続ける（15/14日目…）
+  // 期間を過ぎても、日数は数え続ける（31/30日目…）
   const sum = { city: store.city, dayNo, days: store.days, goal: store.goal, sales, angry, done: st.done };
   const next = nextStoreOf(store.id);
   const best = Math.max(state.bestDaySales || 0, today.sales);
@@ -181,6 +181,7 @@ export function createInitialState() {
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
     wageAcc: 0, // 今日ぶんの人件費（閉店後のレポートが出るときにまとめて払う）
     shift: defaultShift(), // 時間帯ごとの出勤人数 { kitchen: [12コマ], hall: [12コマ] }
+    complainerPlan: null, // その日のクレーマーの予定 { day, times: [まだ来ていない出現時刻(分)] }
     // ここから「会社全体」（店をまたいで引き継ぐ）
     mails: [], // 本部からのメール { id, kind, key, params, day, store, read }（会社全体）
     storeRecords: {}, // 出店した店の成績 { 店ID: { rank, rate, sales, angry, days } }
@@ -218,7 +219,7 @@ export function createInitialState() {
 }
 
 const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords', 'mails'];
-const STORE_KEYS = ['stage', 'shift', 'wageAcc', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const STORE_KEYS = ['stage', 'shift', 'wageAcc', 'complainerPlan', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
 // 日ごとの記録は直近 HISTORY_KEEP 日だけ残し、それより古いものは30日ぶんずつにまとめる
