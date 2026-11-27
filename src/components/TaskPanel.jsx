@@ -15,7 +15,7 @@ function buildCards(state) {
   state.customers.forEach((c) => {
     const r = RECIPE_MAP[c.recipeId];
     const ratio = c.maxPatience ? c.patience / c.maxPatience : 1;
-    const base = { key: c.id, recipe: r, ratio };
+    const base = { key: c.id, recipe: r, qty: c.qty ?? 1, ratio };
     if (c.complainer && (c.state === 'calling' || c.state === 'fighting')) {
       cards.push({ ...base, ratio: c.state === 'fighting' ? 1 : ratio, title: 'クレーマー対応！', note: c.state === 'fighting' ? '対決中！' : 'クレーマーが怒っています', fight: c.state === 'calling' ? c.id : null, kind: 'fight', hideDish: true });
     } else if (c.state === 'calling') {
@@ -93,6 +93,7 @@ export default function TaskPanel({ state, act, onCook, onFight }) {
         {cards.map((c) => (
           <div key={c.key} className={`task task-${c.kind}`}>
             <div className="task-icon">{c.hideDish ? <span className={c.iconText ? 'task-emoji' : 'bang'}>{c.iconText || '！'}</span> : <DishIcon recipe={c.recipe} size={34} />}</div>
+            {!c.hideDish && c.qty > 1 && <span className="task-qty">×{c.qty}</span>}
             <div className="task-body">
               <div className="task-note">{c.note}</div>
               {c.ratio < 1 && (

@@ -1,9 +1,9 @@
 // 店舗データ。1店舗＝1ステージ。順番に出店していく（都道府県・市町・現存/閉店・順番は P9 で全国に広げる）。
-// shift: シフト調整が使える店。stock: 発注と在庫がある店（食材が減り、品切れ・期限切れが起きる。彦根は在庫を気にせず作れる）。wageLv: 人件費（時給）がかかり始める店のレベル（彦根はLv20から。シフトのない店では、出勤の時間帯は全員勤務のまま）。数値（期間・目標）は暫定。テストプレイで調整する。ゲーム内では市町名だけを使う。
+// 数値（期間・目標）は暫定。テストプレイで調整する。ゲーム内では市町名だけを使う。
 export const STORES = [
-  { id: 'hikone', city: '彦根', pref: '滋賀県', prefId: 'shiga', lat: 35.2745, lon: 136.2597, label: [0, 0], status: 'existing', days: 30, goal: 500000, shift: false, stock: false, wageLv: 20 }, // 1号店：調理・接客の基本
-  { id: 'kusatsu', city: '草津', pref: '滋賀県', prefId: 'shiga', lat: 35.0176, lon: 135.9594, label: [44, 4], status: 'existing', days: 30, goal: 840000, shift: true, stock: true, wageLv: 1 }, // 2号店：シフト調整・発注（P3・P4で追加）
-  { id: 'otsu', city: '大津', pref: '滋賀県', prefId: 'shiga', lat: 35.0045, lon: 135.8686, label: [-44, 8], status: 'existing', days: 30, goal: 1170000, shift: true, stock: true, wageLv: 1 }, // 3号店：在庫確認・レイアウト（P8で追加）
+  { id: 'hikone', city: '彦根', pref: '滋賀県', prefId: 'shiga', lat: 35.2745, lon: 136.2597, label: [0, 0], status: 'existing', days: 30, goal: 550000 }, // 1号店：調理・接客の基本
+  { id: 'kusatsu', city: '草津', pref: '滋賀県', prefId: 'shiga', lat: 35.0176, lon: 135.9594, label: [44, 4], status: 'existing', days: 30, goal: 930000 }, // 2号店
+  { id: 'otsu', city: '大津', pref: '滋賀県', prefId: 'shiga', lat: 35.0045, lon: 135.8686, label: [-44, 8], status: 'existing', days: 30, goal: 1290000 }, // 3号店：レイアウト（P8で追加）
 ];
 export const STORE_MAP = Object.fromEntries(STORES.map((s) => [s.id, s]));
 export const FIRST_STORE = STORES[0].id;
@@ -17,7 +17,6 @@ export const TRANSFER_COST = 100000;
 
 // ───────── 本部評価 ─────────
 // 評価の点数 ＝ 期間中の総売上 − 怒って帰った人数 × ANGRY_PENALTY。目標に対する達成率でランクが決まる。
-// （人時売上高・原価率は、指標ができる P3・P4 で加える）
 export const ANGRY_PENALTY = 500;
 export const RANKS = [
   { id: 'S', min: 1.5 },

@@ -31,7 +31,6 @@ function pickFields(d) {
     hallSkills: d.hallSkills || [],
     equipment: d.equipment || {},
     decor: d.decor || {},
-    shift: d.shift,
   };
 }
 
@@ -64,6 +63,5 @@ export function summarizeStore(state, id) {
     size: STORE_SIZES[d.sizeIdx]?.name || '', tables: d.tables,
     staff: d.staff, hall, equipment,
     decorOwned: DECOR.filter((x) => d.decor[x.id]).length, decorAll: DECOR.length,
-    shift: !!store.shift,
   };
 }

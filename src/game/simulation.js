@@ -9,13 +9,10 @@
 //   bus(片付け: pickup→wash。食べ終わった席の食器を洗い場へ)
 import { RECIPE_MAP } from '../data/recipes.js';
 import { findPath } from './pathfinding.js';
-import { slotOf, wageOn, onDutyIdx, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
+import { slotOf, makeReport, drinkFee, drinkCap, crowdRate, appeal, availableRecipes, eqSpeed, xpToNext, unlocksAt, MAX_LEVEL, MIN_PER_SEC, FAST_MIN_PER_SEC, ARRIVE_MIN, FAST_START_MIN, FAST_END_MIN, OPEN_MIN, LAST_ORDER_MIN, CLOSE_MIN } from './state.js';
 import { buildLayout } from './layout.js';
-import { wageOf } from '../data/shop.js';
 import { checkTips } from './mail.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
-import { canMake, useStock, recordStockout, deliverStock, discardExpired } from './stock.js';
-import { STOCKOUT_LEAVE } from '../data/stock.js';
 import { pickByPopularity } from '../data/popularity.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
@@ -25,6 +22,8 @@ const COMPLAINER_LAST_MIN = 21 * 60; // 出現時刻の抽選はここまで（�
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const DRINK_RATE = 0.6; // ドリンクバーを頼むお客さんの割合
+const MULTI_RATE = 0.3; // 同じ料理を2個以上頼むお客さんの割合
+const MULTI_WEIGHTS = [[2, 50], [3, 25], [4, 15], [5, 10]]; // 2個以上頼むときの [個数, 出やすさ]
 const DRINK_FILL_TIME = 1.6; // ドリンクを注ぐ時間(秒)
 const DRINK_SWAP_TIME = 3; // ドリンク交換にかかる時間(秒)
 const QR_ORDER_TIME = 3; // QR注文のスマホ操作時間(秒)
@@ -81,6 +80,17 @@ const faceToward = (ent, target) => {
 };
 
 // ───────── お客さん ─────────
+// 頼む個数（1種類の料理を何個頼むか）
+function pickQty() {
+  if (Math.random() >= MULTI_RATE) return 1;
+  let x = Math.random() * MULTI_WEIGHTS.reduce((s, [, w]) => s + w, 0);
+  for (const [n, w] of MULTI_WEIGHTS) {
+    x -= w;
+    if (x < 0) return n;
+  }
+  return 2;
+}
+
 const randomLook = () => ({
   hair: Math.floor(Math.random() * 6),
   shirt: Math.floor(Math.random() * 8),
@@ -120,6 +130,7 @@ function spawnCustomer(state) {
     c.complainer = true;
     c.look = { ...c.look, shirt: 6, hair: 2, long: false };
   }
+  c.qty = c.complainer ? 1 : pickQty();
   c.wantsDrink = !!state.equipment.drink.owned && !c.complainer && Math.random() < DRINK_RATE;
   state.seatOcc[seat.id] = c.id;
   setDest(state, c, seat);
@@ -236,18 +247,6 @@ function updatePayQueue(state, c) {
 
 // 注文を通す（店員が聞いたとき／お客さんがスマホで注文したとき）
 function placeOrder(state, c) {
-  // 在庫のある店：食べたい料理が品切れなら、ほかの料理にするか、あきらめて帰る（怒って帰った人に数える）
-  if (!canMake(state, c.recipeId)) {
-    recordStockout(state, c.recipeId);
-    const alt = availableRecipes(state).filter((x) => canMake(state, x.id));
-    if (!alt.length || Math.random() < STOCKOUT_LEAVE) {
-      leaveAngry(state, c, '品切れなら帰る…');
-      return;
-    }
-    c.recipeId = pickByPopularity(state.storeId, alt).id;
-    state.events.push({ type: 'angry', x: c.x, y: c.y, text: '品切れか…' });
-  }
-  useStock(state, c.recipeId);
   const r = RECIPE_MAP[c.recipeId];
   state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
   c.state = 'waiting';
@@ -432,7 +431,9 @@ function pay(state, c) {
   const q = c.quality ?? 2;
   const mult = QUALITY_MULT[q];
   const drink = c.hasDrink ? drinkFee(state) : 0; // ドリンクバーを頼んで飲んだ人だけ
-  const dish = Math.round((r.price * mult) / 10) * 10; // 料理だけの金額
+  const qty = c.qty ?? 1; // 個数のない古いセーブは1個
+  const unit = Math.round((r.price * mult) / 10) * 10; // 料理1個の金額
+  const dish = unit * qty; // 料理だけの金額
   const amount = dish + drink;
   const xp = Math.round((r.price / 12) * mult) + 2;
   state.coins += amount;
@@ -440,13 +441,13 @@ function pay(state, c) {
   state.stats.served++;
   const dl = state.daily;
   const sold = (dl.sold[c.recipeId] ||= { n: 0, amount: 0 });
-  sold.n++;
+  sold.n += qty;
   sold.amount += dish; // 料理ごとの金額にはドリンク代を混ぜない
   dl.drinkSales = (dl.drinkSales || 0) + drink; // ドリンク代は別枠で集計（古いセーブにはない）
   dl.sales += amount;
   dl.served++;
   if (q === 3) state.stats.perfect++;
-  state.events.push({ type: 'sale', amount, xp, x: state.layout.register.x, y: state.layout.register.y, quality: q });
+  state.events.push({ type: 'sale', amount, unit, qty, drink, xp, x: state.layout.register.x, y: state.layout.register.y, quality: q });
   addXp(state, xp);
 }
 
@@ -471,7 +472,7 @@ const workTime = (clock) => clock >= ARRIVE_MIN && clock < CLOSE_MIN;
 function makeWorker(state, role, index) {
   const L = state.layout;
   const spot = role === 'manager' ? L.managerIdle : role === 'kitchen' ? L.kitchenIdle[index] : L.hallIdle[index];
-  const off = !workTime(state.clock) || (role !== 'manager' && !onDutyIdx(state, role, index));
+  const off = !workTime(state.clock);
   return {
     id: newId(state),
     kind: 'worker',
@@ -866,15 +867,12 @@ function idleSpot(state, w) {
   return (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle)[w.index % (w.role === 'kitchen' ? L.kitchenIdle : L.hallIdle).length];
 }
 
-// シフトのある店では、いまの時間帯に出勤する人数に入っているか（店長は常に出勤）
-const onDuty = (state, w) => w.role === 'manager' || onDutyIdx(state, w.role, w.index);
-
 function updateWorker(state, w, dt) {
   const speed = SPEED[w.role];
   const L = state.layout;
   if (w.shift === 'off') {
-    // 開店1時間前になったら裏口から入ってくる（シフトのある店では、出勤の時間帯のスタッフだけ）
-    if (workTime(state.clock) && onDuty(state, w)) {
+    // 開店1時間前になったら裏口から入ってくる
+    if (workTime(state.clock)) {
       w.shift = 'arriving';
       w.x = L.backOutside.x;
       w.y = L.backOutside.y;
@@ -893,8 +891,8 @@ function updateWorker(state, w, dt) {
     }
     return;
   }
-  // 閉店後、お客さんがいなくなって仕事も終わったら裏口から帰る。シフトの時間が終わった人も、仕事が終わったら帰る
-  const leave = !workTime(state.clock) ? !state.customers.length : !onDuty(state, w);
+  // 閉店後、お客さんがいなくなって仕事も終わったら裏口から帰る
+  const leave = !workTime(state.clock) && !state.customers.length;
   if (leave && !w.task && !w.queue.length) {
     w.shift = 'leaving';
     w.sitting = false;
@@ -1018,30 +1016,23 @@ function stepClock(state, dt) {
     state.day += 1;
     state.spawnTimer = 2;
     state.events.push({ type: 'clock', text: `${state.day}日目 開店！` });
-    deliverStock(state); // 発注した食材が届く（在庫のある店だけ）
   } else if (crossed(LAST_ORDER_MIN)) {
     state.events.push({ type: 'clock', text: 'ラストオーダーです（21:30）' });
   } else if (crossed(CLOSE_MIN)) {
     state.events.push({ type: 'clock', text: '閉店です。おつかれさま！' });
     sendHomeCustomers(state);
   } else if (crossed(FAST_START_MIN)) {
-    payWages(state);
-    discardExpired(state); // 期限が今日までの食材を捨てる（在庫のある店だけ）
-    state.clockDelta = 0; // 支払ったあとは、今日ぶんの人件費を増やさない
     state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
     checkTips(state); // 条件を満たしたヒントのメール
   }
 }
 
-// ───────── スタッフの稼働率と人件費 ─────────
-// 出勤している間(店に入っている間)だけ、稼働率の分母に入れ、シフトのある店では時給を払う。店長は対象外
+// ───────── スタッフの稼働率 ─────────
+// 出勤している間(店に入っている間)だけ、稼働率の分母に入れる。店長は対象外
 function trackStaff(state, dm) {
   const slot = slotOf(state.clock);
-  const paid = wageOn(state);
   for (const w of state.workers) {
-    if (w.role === 'manager' || w.shift === 'off') continue;
-    if (paid) state.wageAcc += (wageOf(w.role, state.level) * dm) / 60;
-    if (w.shift !== 'on') continue;
+    if (w.role === 'manager' || w.shift !== 'on') continue;
     const busy = w.task ? dm : 0;
     const u = state.daily.util[w.role][slot];
     u[0] += dm;
@@ -1050,17 +1041,6 @@ function trackStaff(state, dm) {
     wu[0] += dm;
     wu[1] += busy;
   }
-}
-
-// 今日ぶんの人件費を払う（閉店後のレポートが出るのと同時）。払えないときは所持金がマイナス（赤字）になる
-function payWages(state) {
-  const whole = Math.round(state.wageAcc);
-  state.wageAcc = 0;
-  if (whole <= 0) return;
-  state.coins -= whole;
-  const ex = state.daily.expense;
-  ex.labor = (ex.labor || 0) + whole;
-  state.events.push({ type: 'penalty', text: `人件費 ¥${whole.toLocaleString()} を支払いました${state.coins < 0 ? '（赤字です！）' : ''}` });
 }
 
 // ───────── メインの1フレーム ─────────

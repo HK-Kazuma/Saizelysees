@@ -53,7 +53,7 @@ export default function ShopPanel({ state, act, onClose }) {
         {state.coins < 0 && (
           <div className="shop-closed">
             <b>赤字のため、ショップは利用できません</b>
-            <span>所持金が {fmtCoins(state.coins)} です。売上で赤字を解消すると、また買い物ができます。シフトで人件費を見直すのも手です。</span>
+            <span>所持金が {fmtCoins(state.coins)} です。売上で赤字を解消すると、また買い物ができます。</span>
           </div>
         )}
         <div className="tabs">
