@@ -949,16 +949,55 @@ export class Renderer {
     });
   }
 
+  // 3列のドリンクサーバー（左右が赤いパネル、中央にボタンが縦に並び、下に注ぎ口とトレイ）。高さは26px
   drawDrinkBar(g, d, state) {
-    isoBox(g, d.x + 0.1, d.y + 0.1, 0.8, 0.8, 0, 26, { top: C.white, left: C.red, right: C.redD, hi: '#ffffff' });
-    const a = P(d.x + 0.1, d.y + 0.9, 18), b = P(d.x + 0.9, d.y + 0.9, 18);
-    line(g, a.x, a.y, b.x - 1, b.y, C.white);
-    const p = P(d.x + 0.5, d.y + 0.5, 26);
-    const n = state.drinkStock > 0 ? 1 + (state.equipment.drink.lv || 1) : 0; // 切れたらボトルが消える
-    for (let i = 0; i < n; i++) {
-      g.fillStyle = ['#cfe8f0', '#f2a03a', '#8a3a2a', '#6ab84a'][i % 4];
-      g.fillRect(Math.round(p.x) - 6 + i * 4, Math.round(p.y) - 5, 3, 4);
+    const front = d.y + 0.9; // 手前の面（お客さんが立つ側）
+    isoBox(g, d.x, d.y + 0.1, 1, front - d.y - 0.1, 0, 26, { top: '#f2dfb0', left: '#dcc08a', right: '#b89a64', hi: '#fff2d0' });
+
+    // 手前の面に1px幅の列で描く。i=左からの列(0〜15)、z=床からの高さ
+    const o = P(d.x, front, 0);
+    const rect = (i, z, w, h, color) => {
+      g.fillStyle = color;
+      for (let k = i; k < i + w; k++) g.fillRect(Math.round(o.x) + k, Math.round(o.y) + (k >> 1) - z - h, 1, h);
+    };
+    const on = state.drinkStock > 0; // 切れたらボタンとランプが消える
+    const lit = (color) => (on ? color : '#8a8a8a');
+    const COLS = [1, 6, 11]; // 3列それぞれの左端（幅4）
+    const ACCENT = ['#f29a1a', '#2a7ae0', '#4ab83a'];
+
+    rect(1, 1, 14, 2, '#3a3a42'); // トレイ
+    rect(2, 2, 12, 1, '#7a7a84');
+    rect(1, 3, 14, 7, '#eef0f2'); // 注ぎ口の下の白い空間
+    rect(1, 9, 14, 1, '#c8ccd2');
+    COLS.forEach((i, n) => {
+      rect(i, 6, 4, 2, ACCENT[n]); // 下向きの三角マーク
+      rect(i + 1, 4, 2, 2, ACCENT[n]);
+      rect(i, 10, 4, 2, '#1e1e24'); // 注ぎ口
+      rect(i + 1, 10, 2, 1, lit(ACCENT[n]));
+    });
+
+    // 下段のボタン（お茶・炭酸水・紅茶）
+    [['#f6e2c4', '#c8442a'], ['#2a8ae0', '#ffffff'], ['#e4eef8', '#2a4a9a']].forEach(([bg, ink], n) => {
+      rect(COLS[n], 13, 4, 3, lit(bg));
+      rect(COLS[n] + 1, 14, 2, 1, ink);
+    });
+
+    // 左右の赤いパネル：白い飾り文字ふうの曲線と、下のほうに氷の入ったグラス
+    for (const i of [1, 11]) {
+      rect(i, 17, 4, 9, '#d4202a');
+      rect(i, 17, 4, 2, '#7a241c');
+      rect(i + 1, 17, 1, 1, '#e8a070');
+      rect(i + 2, 18, 1, 1, '#ffffff');
+      [[1, 20], [2, 21], [2, 22], [1, 23], [2, 24]].forEach(([dx, z]) => rect(i + dx, z, 1, 1, '#ffffff'));
+      rect(i, 20, 1, 5, '#ee5a60'); // つや
     }
+
+    // 中央の列：ボタンが縦に5つ（下から 緑・緑・黒・赤・赤）
+    rect(6, 17, 4, 9, '#f6ecd0');
+    ['#4ab83a', '#6ac84a', '#2a1a16', '#e0242c', '#e0242c'].forEach((color, n) => rect(6, 17 + n * 2, 4, 1, lit(color)));
+    rect(5, 13, 1, 13, '#f6ecd0'); // 列の仕切り
+    rect(10, 13, 1, 13, '#f6ecd0');
+    rect(1, 16, 14, 1, '#f6ecd0');
   }
 
   drawTable(g, state, t, seatedBy) {
