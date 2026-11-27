@@ -16,7 +16,8 @@ import { checkTips } from './mail.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
-const COMPLAINER_RATE = 0.1; // お客さん1人ごとにクレーマーである確率
+const COMPLAINERS_PER_DAY = 2; // クレーマーが来るのは1日にこの回数まで
+const COMPLAINER_LAST_MIN = 21 * 60; // 出現時刻の抽選はここまで（ラストオーダー直前だと、次の来客がなく出ないことがあるため）
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -109,8 +110,10 @@ function spawnCustomer(state) {
     claimedBy: null,
     look: randomLook(),
   };
-  // たまにクレーマーが来る（同時に1人まで）。注文は取れず、店長が撃退する
-  if (!state.customers.some((x) => x.complainer) && Math.random() < COMPLAINER_RATE) {
+  // 予定の時刻を過ぎて最初に来たお客さんがクレーマーになる（同時に1人まで）。注文は取れず、店長が撃退する
+  const times = state.complainerPlan.times;
+  if (times.length && state.clock >= times[0] && !state.customers.some((x) => x.complainer)) {
+    times.shift();
     c.complainer = true;
     c.look = { ...c.look, shirt: 6, hair: 2, long: false };
   }
@@ -119,6 +122,14 @@ function spawnCustomer(state) {
   setDest(state, c, seat);
   state.customers.push(c);
   return true;
+}
+
+// その日にクレーマーが来る時刻をランダムに決める（1日1回だけ。セーブするので、読み込み直しても回数は増えない）
+function planComplainers(state) {
+  if (state.complainerPlan?.day === state.day) return;
+  const from = state.clock; // ふつうは開店時刻。日の途中のセーブから始めたときは、いまより後の時刻にする
+  const times = Array.from({ length: COMPLAINERS_PER_DAY }, () => rand(from, Math.max(from, COMPLAINER_LAST_MIN))).sort((a, b) => a - b);
+  state.complainerPlan = { day: state.day, times };
 }
 
 // クレーマーに所持金の半分を持っていかれる（戦いに負けたとき・放置して帰られたとき共通）
@@ -1042,7 +1053,10 @@ function step(state, dt) {
 
   // ラストオーダー(21:30)を過ぎたら新しいお客さんは来ない
   const canOrder = state.clock >= OPEN_MIN && state.clock < LAST_ORDER_MIN;
-  if (canOrder) state.spawnTimer -= dt * crowdRate(state.clock); // 閑散時間帯は次の来客までが長くなる
+  if (canOrder) {
+    planComplainers(state);
+    state.spawnTimer -= dt * crowdRate(state.clock); // 閑散時間帯は次の来客までが長くなる
+  }
   if (canOrder && state.spawnTimer <= 0) {
     const ok = spawnCustomer(state);
     const a = appeal(state);

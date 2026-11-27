@@ -10,10 +10,11 @@ import { darkness, OPEN_MIN, CLOSE_MIN } from '../game/state.js';
 import { BACK_ROWS } from '../game/layout.js';
 import { view } from './view.js';
 import { getTheme } from './themes.js';
-import { OUT_M, WORLD, LAMP_H, lampSpots, treeLights, drawGround, drawOutside, setBgOrigin } from './outside.js';
+import { WORLD, LAMP_H, lampSpots, treeLights, drawGround, drawOutside, setBgOrigin } from './outside.js';
 import logoUrl from '../assets/logo.png';
 
 const WH = 72; // 壁の高さ(px)
+const VIEW_M = 11; // 土地のまわりの、見せる範囲（タイル数）。歩道・道路(4) ＋ 地域の風景
 const FIT_SIZE_IDX = 1; // 最初に画面へ収める店のサイズ（これより大きい店は動かして見る）
 
 const C = {
@@ -88,6 +89,7 @@ export class Renderer {
   // 世界（最大サイズの土地＋道路）の範囲。背景はこの範囲を丸ごと1枚に描く
   worldBounds() {
     const PAD = 80;
+    const OUT_M = VIEW_M; // まわりの風景が見えるところまで（土地の外側 VIEW_M タイル）
     return {
       minX: -(WORLD.rows + OUT_M) * 16 - 6 - PAD,
       maxX: (WORLD.cols + OUT_M + BACK_ROWS) * 16 + 6 + PAD,
@@ -162,9 +164,10 @@ export class Renderer {
     const L = state.layout;
     const eqKey = Object.entries(state.equipment).map(([k, v]) => `${k}${v.owned ? 1 : 0}`).join('');
     const th = getTheme();
-    const key = `${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}|${th.id}`;
+    const key = `${state.sizeIdx}|${JSON.stringify(state.decor)}|${eqKey}|${!!this.poster}|${th.id}|${state.storeId}`;
     if (key === this.bgKey) return;
     this.bgKey = key;
+    this.regionId = state.storeId; // 夜の電飾も、湖の上の木には付けない
     const wb = this.worldBounds();
     const cv = this.bg;
     cv.width = wb.maxX - wb.minX;
@@ -177,11 +180,11 @@ export class Renderer {
     g.fillRect(0, 0, cv.width, cv.height);
     g.save();
     g.translate(this.bgOx, this.bgOy);
-    drawGround(g, L, cv.width, cv.height); // 歩道・道路
-    drawOutside(g, L, cv.width, cv.height, 'back'); // 奥側のガードレール・街路樹
+    drawGround(g, L, cv.width, cv.height, state.storeId); // 歩道・道路・地域の地面（湖・石畳など）
+    drawOutside(g, L, cv.width, cv.height, 'back', state.storeId); // 奥側のガードレール・街路樹・地域の風景
     this.drawFloor(g, state);
     this.drawWalls(g, state);
-    drawOutside(g, L, cv.width, cv.height, 'front'); // 手前側のガードレール・街路樹
+    drawOutside(g, L, cv.width, cv.height, 'front', state.storeId); // 手前側のガードレール・街路樹・地域の風景
     g.restore();
   }
 
@@ -723,7 +726,7 @@ export class Renderer {
     const t = performance.now() / 1000;
     const COL = ['255,90,80', '255,214,90', '110,200,255', '120,230,140', '255,150,220'];
     const x0 = -view.ox - 40, x1 = x0 + this.W + 80, y0 = -view.oy - 60, y1 = y0 + this.H + 120;
-    for (const tr of treeLights()) {
+    for (const tr of treeLights(this.regionId)) {
       const p = P(tr.u, tr.v);
       if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
       const bx = Math.round(p.x), by = Math.round(p.y);
