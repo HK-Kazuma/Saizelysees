@@ -29,25 +29,48 @@ function innerSpots(L) {
   return out;
 }
 
-// ───────── 彦根：琵琶湖・彦根城とお堀・城下町の町家 ─────────
+// 住宅街：u0〜u1 の道(lane)の両側に区画を並べる（道に面した側が門）。v0 から dv+0.2 ずつ n 区画
+function homeRows(lane, v0, n, seed0, dv = 2.6) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const v = v0 + i * (dv + 0.2);
+    out.push({ type: 'residence', u: lane - 3.6, v, du: 3.3, dv, seed: seed0 + i * 2, gate: 'u1' });
+    out.push({ type: 'residence', u: lane + 1.3, v, du: 3.3, dv, seed: seed0 + i * 2 + 1, gate: 'u0' });
+  }
+  return out;
+}
+
+// ───────── 彦根：琵琶湖・彦根城とお堀・市役所と住宅街 ─────────
+// 道路は土地のまわりから画面の外までまっすぐ延びている（u -3〜-1 / 19〜21、v -9〜-7 / 15〜17 は歩道と道路）。
+// 建物を置けるのは、その間の区画（手前：u 0〜18・v 18〜、右手前：u 22〜・v -6〜14、など）だけ
 function hikone() {
   const ground = grid();
   set(ground, -40, -9, -40, 40, 'water'); // 琵琶湖
   set(ground, -8, -8, -40, 40, 'sand');
   ring(ground, 5, 13, -18, -12, 'water'); // お堀
   ground.set('9,-12', 'deck'); // 堀にかかる橋
-  set(ground, -4, 21, 18, 18, 'stone'); // 城下町の石畳
-  set(ground, 22, 22, -10, 21, 'stone');
+  set(ground, 9, 17, 24, 25, 'stone'); // 市役所の前庭
+  set(ground, 5, 8, 19, 23, 'parking'); // 市役所の駐車場
+  for (const [v0, v1] of [[-40, -11], [-6, 13], [18, 40]]) set(ground, 26, 26, v0, v1, 'lane'); // 住宅街の道
   const props = [
     { type: 'castle', u: 7.4, v: -16.3, du: 3.2, dv: 2.6 },
-    ...[[6.5, -16.6], [12.4, -16.6], [6.5, -13.4], [12.4, -13.4], [2, -13], [3, -16.5], [15.5, -13], [16.5, -16.5], [-1, -14], [20, -14.5]].map(([u, v]) => ({ type: 'pine', u, v })),
-    { type: 'lantern', u: 8.4, v: -11.4 },
-    { type: 'lantern', u: 10.4, v: -11.4 },
-    ...range(-8, 16, 3).map((v) => ({ type: 'pine', u: -6.6, v })),
-    ...range(-3, 19, 2.1).map((u, i) => ({ type: 'machiya', u, v: 19.1, du: 1.8, dv: 1.6, seed: i })),
-    ...range(-2, 18, 2.1).map((u, i) => ({ type: 'machiya', u, v: 21.4, du: 1.8, dv: 1.6, seed: i + 1 })),
-    ...range(-8, 18, 1.9).map((v, i) => ({ type: 'machiya', u: 23.1, v, du: 1.7, dv: 1.6, seed: i + 2 })),
-    ...range(-7, 16, 2.6).map((v, i) => ({ type: i % 2 ? 'pine' : 'lantern', u: 26, v })),
+    ...[[6.5, -16.6], [12.4, -16.6], [6.5, -13.4], [12.4, -13.4], [2, -13], [3, -16.5], [15.5, -13], [16.5, -16.5], [-5.6, -13.5], [17.2, -11.6]].map(([u, v]) => ({ type: 'pine', u, v })),
+    { type: 'lantern', u: 8.4, v: -10.6 },
+    { type: 'lantern', u: 10.4, v: -10.6 },
+    ...[...range(-5, 13, 3), 19, 22, 25, -12, -15].map((v) => ({ type: 'pine', u: -6.6, v })), // 湖岸の松
+    // 市役所：前庭に旗ざおと花壇、横に駐車場
+    { type: 'cityHall', u: 9.6, v: 20.2, du: 8, dv: 3.2 },
+    ...[0, 1, 2].map((k) => ({ type: 'flagpole', u: 12 + k * 1.1, v: 24.9, kind: k })),
+    ...[[9.7, 24.6], [16.9, 24.6]].map(([u, v]) => ({ type: 'flowerBed', u, v })),
+    ...range(10.1, 16.1, 1.5).map((u) => ({ type: 'bush', u, v: 18.9 })),
+    ...[[9, 19], [17.4, 19.1]].map(([u, v]) => ({ type: 'roundTree', u, v })),
+    ...[[5.05, 19.25, 0], [5.05, 21.25, 2], [7.05, 20.25, 4], [8.05, 22.25, 1]].map(([u, v, seed]) => ({ type: 'car', u, v, seed })),
+    // 住宅街（市役所の左・手前、右、右奥、右手前）
+    ...range(18.3, 24, 2.8).map((v, i) => ({ type: 'residence', u: 0.3, v, du: 3.3, dv: 2.6, seed: i + 5, gate: 'v1' })),
+    ...range(0.3, 15, 3.5).map((u, i) => ({ type: 'residence', u, v: 26.7, du: 3.3, dv: 2.6, seed: i + 9, gate: 'v1' })),
+    ...homeRows(26, -5.8, 7, 0),
+    ...homeRows(26, -15.9, 2, 20),
+    ...homeRows(26, 18.3, 3, 14),
   ];
   const inner = (L) => innerSpots(L).map((p, i) => ({ type: i % 2 ? 'lantern' : 'bush', ...p }));
   return { ground, props, inner };
@@ -68,12 +91,12 @@ function kusatsu() {
     { type: 'railway', u0: -12, u1: 30, v: -14.4, depth: -60 },
     { type: 'train', u: 0.5, v: -14.4, cars: 5, depth: -50 },
     { type: 'station', u: 6.5, v: -12.9 },
-    ...[-3, 1.5, 6, 10.5, 15, 19.5].map((u, i) => ({ type: 'mansion', u, v: -18, du: 3.2, dv: 2.6, h: heights[i], seed: i, depth: -100 + i })),
-    ...[[0, -11.4], [14, -11.4], [19.5, -11.4]].map(([u, v]) => ({ type: 'flowerBed', u, v })),
+    ...[0.2, 4.6, 9, 13.4, 22.4, 26.8].map((u, i) => ({ type: 'mansion', u, v: -18, du: 3.2, dv: 2.6, h: heights[i], seed: i, depth: -100 + i })),
+    ...[[1, -11.4], [14, -11.4], [23.5, -11.4]].map(([u, v]) => ({ type: 'flowerBed', u, v })),
     { type: 'honjin', u: 3, v: 19.2 },
-    ...[-3, -0.9, 9.6, 11.7, 13.8, 15.9, 18].map((u, i) => ({ type: 'machiya', u, v: 19.1, du: 1.8, dv: 1.6, seed: i })),
-    ...range(-8, 16, 1.8).map((v, i) => ({ type: 'shop', u: 23.1, v, du: 1.6, dv: 1.4, seed: i })),
-    ...range(-7, 16, 2.4).map((v, i) => ({ type: i % 3 === 1 ? 'sakura' : 'roundTree', u: 27.6, v })),
+    ...[0.6, 9.6, 11.7, 13.8, 15.9].map((u, i) => ({ type: 'machiya', u, v: 19.1, du: 1.8, dv: 1.6, seed: i })),
+    ...[...range(-5.8, 12.2, 1.8), ...range(18.2, 24, 1.8)].map((v, i) => ({ type: 'shop', u: 23.1, v, du: 1.6, dv: 1.4, seed: i })),
+    ...range(-5, 13, 2.4).map((v, i) => ({ type: i % 3 === 1 ? 'sakura' : 'roundTree', u: 27.6, v })),
     ...range(-6, 15, 4.8).map((v) => ({ type: 'bench', u: 25.4, v })),
   ];
   const inner = (L) => innerSpots(L).map((p, i) => ({ type: i % 2 ? 'flowerBed' : 'bush', ...p }));
@@ -95,17 +118,17 @@ function otsu() {
     { type: 'mountain', u: -10, v: 12, w: 110, h: 56, depth: -198 },
     { type: 'paddleBoat', u: 3, v: -17.2 },
     { type: 'ukimido', u: 13, v: -17.4 },
-    ...range(-4, 20, 4).map((u) => ({ type: 'sakura', u, v: -11.5 })),
-    ...[-2, 6, 18].map((u) => ({ type: 'bench', u, v: -11.4 })),
+    ...[...range(0.6, 16.6, 4), 24, 28].map((u) => ({ type: 'sakura', u, v: -11.5 })),
+    ...[2.6, 10.6, 14.6].map((u) => ({ type: 'bench', u, v: -11.4 })),
     { type: 'templeGate', u: 4, v: 19.3 },
     { type: 'templeHall', u: 3.6, v: 21.6 },
     ...[[1.8, 20], [8, 20], [1.5, 23.4], [8.6, 23.4]].map(([u, v]) => ({ type: 'sakura', u, v })),
-    ...range(11, 19, 2.1).map((u, i) => ({ type: 'house', u, v: 19.1, du: 1.6, dv: 1.4, seed: i })),
-    ...range(12, 19, 2.1).map((u, i) => ({ type: 'house', u, v: 21.3, du: 1.6, dv: 1.4, seed: i + 2 })),
+    ...range(10.2, 16.2, 2).map((u, i) => ({ type: 'house', u, v: 19.1, du: 1.6, dv: 1.4, seed: i })),
+    ...range(11.2, 15.2, 2).map((u, i) => ({ type: 'house', u, v: 21.3, du: 1.6, dv: 1.4, seed: i + 2 })),
     { type: 'torii', u: 23.2, v: 4 },
-    ...range(-8, 2, 1.8).map((v, i) => ({ type: 'house', u: 23.4, v, du: 1.6, dv: 1.4, seed: i + 1 })),
-    ...range(7, 16, 1.8).map((v, i) => ({ type: 'house', u: 23.4, v, du: 1.6, dv: 1.4, seed: i + 3 })),
-    ...range(-7, 15, 3).map((v, i) => ({ type: i % 2 ? 'sakura' : 'roundTree', u: 26.4, v })),
+    ...range(-5.8, 2, 1.8).map((v, i) => ({ type: 'house', u: 23.4, v, du: 1.6, dv: 1.4, seed: i + 1 })),
+    ...range(7, 12.4, 1.8).map((v, i) => ({ type: 'house', u: 23.4, v, du: 1.6, dv: 1.4, seed: i + 3 })),
+    ...range(-5, 13, 3).map((v, i) => ({ type: i % 2 ? 'sakura' : 'roundTree', u: 26.4, v })),
   ];
   const inner = (L) => innerSpots(L).map((p, i) => ({ type: i % 2 ? 'bench' : 'bushPink', ...p }));
   return { ground, props, inner };

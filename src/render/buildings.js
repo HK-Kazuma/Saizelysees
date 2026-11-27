@@ -269,6 +269,122 @@ export function shop(g, u, v, du = 1.6, dv = 1.4, seed = 0) {
   onL(g, u + du * 0.25, u + du * 0.75, v + dv, 15, 18, aw); // 看板（文字なし）
   box(g, u, v, du, dv, 20, 2, shade(wall, -0.1));
 }
+// 屋上が平らな建物の雪
+function snowTop(g, u, v, du, dv, z) {
+  if (getTheme().snow) fillPoly(g, [P(u, v, z), P(u + du, v, z), P(u + du, v + dv, z), P(u, v + dv, z)], '#f3f7fc');
+}
+// 市役所：横に長い3階建ての庁舎。正面（左手前の面）の真ん中に玄関とひさし、屋上に時計塔
+export function cityHall(g, u, v) {
+  const du = 8, dv = 3.2, H = 34, wall = '#ece7dc';
+  shadowOn(g, u, v, du, dv, 1.6);
+  box(g, u - 0.25, v - 0.25, du + 0.5, dv + 0.5, 0, 3, '#bdb6a6'); // 基壇
+  box(g, u, v, du, dv, 3, H, wall);
+  for (let f = 0; f < 3; f++) {
+    const z0 = 7 + f * 10;
+    const a0 = P(u, v + dv, z0 - 2), a1 = P(u + du, v + dv, z0 - 2);
+    if (f > 0) line(g, a0.x, a0.y, a1.x, a1.y, shade(wall, -0.14));
+    for (let a = u + 0.25; a + 0.35 <= u + du - 0.15; a += 0.55) {
+      if (f === 0 && a > u + 2.9 && a < u + 5.0) continue; // 玄関のところは窓なし
+      onL(g, a, a + 0.35, v + dv, z0, z0 + 6, hash(Math.round(a * 10), f, 3) < 0.12 ? '#f3e7a6' : '#7fa6c4');
+    }
+    for (let b = v + 0.25; b + 0.35 <= v + dv - 0.15; b += 0.55) onR(g, u + du, b, b + 0.35, z0, z0 + 6, '#6889a6');
+  }
+  // 玄関（ガラスの扉）とひさし・柱・青い銘板
+  onL(g, u + 3.3, u + 4.7, v + dv, 3, 12, '#9cc7de');
+  const d0 = P(u + 4, v + dv, 3), d1 = P(u + 4, v + dv, 12);
+  line(g, d0.x, d0.y, d1.x, d1.y, '#5a7690');
+  box(g, u + 3.05, v + dv + 0.55, 0.12, 0.12, 3, 9, '#c9ced4');
+  box(g, u + 4.83, v + dv + 0.55, 0.12, 0.12, 3, 9, '#c9ced4');
+  box(g, u + 3.0, v + dv, 2.0, 0.7, 12, 2, '#a7aeb7');
+  onL(g, u + 3.4, u + 4.6, v + dv + 0.7, 12, 14, '#2a4f8f');
+  // 屋上のふち
+  box(g, u - 0.05, v - 0.05, du + 0.1, dv + 0.1, 3 + H, 2, shade(wall, -0.1));
+  snowTop(g, u, v, du, dv, 5 + H);
+  // 時計塔（銅板の緑の屋根）
+  const tu = u + 3.2, tv = v + 0.9, tz = 5 + H, th = 24;
+  box(g, tu, tv, 1.6, 1.6, tz, th, '#f1ede4');
+  onL(g, tu + 0.42, tu + 1.18, tv + 1.6, tz + 11, tz + 20, '#4a4f5a'); // 時計のふち
+  onL(g, tu + 0.5, tu + 1.1, tv + 1.6, tz + 12, tz + 19, '#fbfaf5');
+  const c = P(tu + 0.8, tv + 1.6, tz + 15.5), h1 = P(tu + 0.8, tv + 1.6, tz + 18.5), h2 = P(tu + 1.02, tv + 1.6, tz + 15.5);
+  line(g, c.x, c.y, h1.x, h1.y, '#2b2b2b');
+  line(g, c.x, c.y, h2.x, h2.y, '#2b2b2b');
+  onR(g, tu + 1.6, tv + 0.5, tv + 1.1, tz + 12, tz + 19, '#6889a6');
+  hipRoof(g, tu, tv, 1.6, 1.6, tz + th, 11, '#5f9a86', 0.18);
+}
+// 旗ざお（国旗・県旗・市旗）
+export function flagpole(g, u, v, kind = 0) {
+  box(g, u - 0.04, v - 0.04, 0.08, 0.08, 0, 40, '#cfd5dc');
+  const top = P(u, v, 41);
+  g.fillStyle = '#e6b422';
+  g.fillRect(Math.round(top.x) - 1, Math.round(top.y) - 2, 2, 2);
+  const bg = ['#fbfaf5', '#2a6fb5', '#2f7a4a'][kind % 3];
+  fillPoly(g, [P(u + 0.06, v, 38), P(u + 0.9, v, 38), P(u + 0.9, v, 31), P(u + 0.06, v, 31)], bg);
+  const m = P(u + 0.48, v, 34.5);
+  g.fillStyle = kind % 3 === 0 ? '#d0312d' : '#fbfaf5';
+  if (kind % 3 === 0) g.fillRect(Math.round(m.x) - 2, Math.round(m.y) - 2, 4, 4);
+  else g.fillRect(Math.round(m.x) - 2, Math.round(m.y) - 1, 4, 2);
+}
+// 乗用車（u 方向に向いて止まっている）
+export function car(g, u, v, seed = 0) {
+  const col = ['#c0392b', '#f4f6f8', '#2a4f8f', '#3b3f48', '#d6a020', '#7a8a96'][seed % 6];
+  box(g, u + 0.12, v + 0.4, 0.18, 0.1, 0, 2, '#2b2b2b'); // タイヤ
+  box(g, u + 0.65, v + 0.4, 0.18, 0.1, 0, 2, '#2b2b2b');
+  box(g, u, v, 0.95, 0.5, 1.5, 4, col);
+  box(g, u + 0.22, v + 0.04, 0.5, 0.42, 5.5, 3, shade(col, 0.05));
+  onL(g, u + 0.26, u + 0.68, v + 0.46, 6, 8, '#9fbad0'); // 窓
+  onR(g, u + 0.72, v + 0.08, v + 0.42, 6, 8, '#86a3bb');
+}
+// 平らな屋根の今どきの家
+export function modernHouse(g, u, v, du = 1.7, dv = 1.5, seed = 0) {
+  shadowOn(g, u, v, du, dv);
+  const wall = ['#f4f4f0', '#e3e0d8', '#d9dde0', '#ece2d2'][seed % 4];
+  const edge = '#7b7f86';
+  box(g, u, v, du, dv, 0, 11, wall);
+  box(g, u + du * 0.62, v, du * 0.38, dv, 11, 1.5, edge); // 1階の屋根のふち
+  box(g, u, v, du * 0.62, dv, 11, 9, shade(wall, -0.03));
+  box(g, u, v, du * 0.62, dv, 20, 1.5, edge);
+  onL(g, u + 0.15, u + du * 0.4, v + dv, 3, 8, '#7fb0d0');
+  onL(g, u + du * 0.7, u + du * 0.88, v + dv, 0, 8, '#8a6040');
+  onL(g, u + 0.15, u + du * 0.5, v + dv, 13, 18, '#7fb0d0');
+  onR(g, u + du, v + dv * 0.3, v + dv * 0.7, 3, 8, '#6f9cbd');
+  onR(g, u + du * 0.62, v + dv * 0.3, v + dv * 0.7, 13, 18, '#6f9cbd');
+  snowTop(g, u, v, du * 0.62, dv, 21.5);
+  snowTop(g, u + du * 0.62, v, du * 0.38, dv, 12.5);
+}
+// 住宅の1区画：生け垣や塀に囲まれた庭・家・車・庭木。gate は道に面した側（'u0' / 'u1' / 'v1'）
+export function residence(g, u, v, du, dv, seed = 0, gate = 'v1') {
+  const style = Math.floor(seed / 2) % 3;
+  const fc = ['#f2efe6', '#5e9e4a', '#c9c2b2'][style], fh = [4, 6, 5][style];
+  const hw = Math.min(1.8, du - 1.4), hd = Math.min(1.6, dv - 0.8);
+  let hu, hv, cu, cv, tu, tv, gap;
+  if (gate === 'u1') {
+    [hu, hv, cu, cv, tu, tv] = [u + 0.25, v + 0.3, u + du - 1.15, v + 0.35, u + du - 0.6, v + dv - 0.55];
+    gap = [v + 0.2, v + 1.0];
+  } else if (gate === 'u0') {
+    [hu, hv, cu, cv, tu, tv] = [u + du - 0.25 - hw, v + 0.3, u + 0.2, v + 0.35, u + 0.6, v + dv - 0.55];
+    gap = [v + 0.2, v + 1.0];
+  } else {
+    [hu, hv, cu, cv, tu, tv] = [u + 0.25, v + 0.25, u + du - 1.2, v + dv - 0.75, u + 0.55, v + dv - 0.4];
+    gap = [u + du - 1.35, u + du - 0.1];
+  }
+  const fenceU = (u0, u1, vv) => u1 > u0 && box(g, u0, vv - 0.04, u1 - u0, 0.08, 0, fh, fc);
+  const fenceV = (uu, v0, v1) => v1 > v0 && box(g, uu - 0.04, v0, 0.08, v1 - v0, 0, fh, fc);
+  const sideV = (uu, open) => (open ? (fenceV(uu, v, gap[0]), fenceV(uu, gap[1], v + dv)) : fenceV(uu, v, v + dv));
+  // 奥の塀 → 家・車・庭木（奥から）→ 手前の塀
+  fenceU(u, u + du, v);
+  sideV(u, gate === 'u0');
+  const items = [
+    { d: hu + hv + (hw + hd) / 2, f: () => (seed % 3 === 2 ? modernHouse(g, hu, hv, hw, hd, seed) : house(g, hu, hv, hw, hd, seed)) },
+    { d: cu + cv + 0.7, f: () => seed % 4 !== 3 && car(g, cu, cv, seed) },
+    { d: tu + tv, f: () => (seed % 2 ? roundTree(g, tu, tv) : bush(g, tu, tv)) },
+  ].sort((a, b) => a.d - b.d);
+  items.forEach((it) => it.f());
+  sideV(u + du, gate === 'u1');
+  if (gate === 'v1') {
+    fenceU(u, gap[0], v + dv);
+    fenceU(gap[1], u + du, v + dv);
+  } else fenceU(u, u + du, v + dv);
+}
 // 彦根城：石垣の上に、白壁と黒い屋根が重なる天守
 export function castle(g, u, v) {
   shadowOn(g, u, v, 3.2, 2.6, 1.6);
