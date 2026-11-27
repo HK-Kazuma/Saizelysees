@@ -1001,3 +1001,37 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .rec-pips i { width: 7px; height: 7px; background: #d9d0b8; border-radius: 1px; }
 .rec-pips i.on { background: #2f6b3a; }
 @media (max-width: 700px) { .store-record { width: min(300px, 52vw); } }
+
+/* 発注と在庫（P4） */
+.modal.orderpanel { width: min(700px, 98vw); height: min(440px, 96%); }
+.order-table { background: var(--white); box-shadow: 0 0 0 2px var(--ink); margin: 8px 0; }
+.order-row { display: grid; grid-template-columns: minmax(0, 1.7fr) 0.8fr 0.9fr auto 0.7fr; gap: 6px; align-items: center; padding: 4px 8px; font-size: 13px; border-bottom: 2px dashed var(--cream-d); }
+.order-row.head { font-size: 11px; color: #6a5a4a; background: var(--cream-d); }
+.order-row > span:nth-child(n+2) { text-align: right; font-variant-numeric: tabular-nums; }
+.order-row.head > span:nth-child(4) { text-align: center; }
+.order-row.unused { opacity: 0.5; }
+.order-row em { display: block; font-size: 10px; font-style: normal; color: #7a6a5a; line-height: 1.2; }
+.order-name small { font-size: 10px; color: #7a6a5a; }
+.order-name em { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.order-stock b, .order-used b { font-size: 15px; }
+.order-stock.zero b { color: #c0211a; }
+.order-stock em.soon { color: #c0211a; font-weight: 700; }
+.order-qty { display: flex; align-items: center; gap: 2px; justify-content: center; }
+.order-qty b { min-width: 2.2em; text-align: center; font-size: 15px; }
+.order-btn { min-width: 26px; min-height: 26px; padding: 0 3px; font-size: 11px; background: #f4efe2; border: 1px solid #d9d0b8; border-radius: 5px; color: #2b2b33; }
+.order-btn:disabled { opacity: 0.3; }
+.order-price { font-size: 12px; }
+.order-repeat { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-right: auto; }
+.order-repeat input { width: 18px; height: 18px; }
+.stock-line .bad { color: #c0211a; font-weight: 700; }
+
+/* 料理ごとの販売 */
+.ds-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.ds-cats span { display: flex; align-items: baseline; gap: 4px; padding: 4px 6px; background: var(--white); box-shadow: 0 0 0 2px var(--ink); }
+.ds-cats small { font-size: 11px; color: #6a5a4a; margin-right: auto; }
+.ds-cats b { font-size: 14px; }
+.ds-cats em { font-size: 10px; font-style: normal; color: #7a6a5a; }
+.ds-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 50px 60px 70px; gap: 6px; align-items: center; padding: 4px 8px; font-size: 13px; border-bottom: 2px dashed var(--cream-d); }
+.ds-row.head { font-size: 11px; color: #6a5a4a; background: var(--cream-d); }
+.ds-row > span:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+.ds-row em { display: block; font-size: 10px; font-style: normal; color: #7a6a5a; }
