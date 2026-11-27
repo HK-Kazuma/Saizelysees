@@ -2,7 +2,8 @@
 import { defaultHallTasks, hallPrefOf, hallSkillOf, SKILL_MAX, SKILL_PRICE, HALL_SKILLS, MANAGER_SKILLS } from '../data/staffTasks.js';
 import { staffLimit, EQUIP_MAP, STAFF, DECOR_MAP, STORE_SIZES, TABLE_PRICE } from '../data/shop.js';
 import { rebuildLayout, syncWorkers, resolveComplainer } from './simulation.js';
-import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory, defaultShift, shiftOn, SLOTS } from './state.js';
+import { createInitialState, clearSave, saveGame, emptyDaily, drinkCap, compactHistory, defaultShift, shiftOn, stockOn, SLOTS } from './state.js';
+import { STOCK_MAP, ORDER_MAX } from '../data/stock.js';
 import { STORE_MAP, nextStoreOf, startGrants, TRANSFER_COST } from '../data/stores.js';
 import { sendMail, checkTips } from './mail.js';
 import { applyDevAction } from '../dev/presets.js';
@@ -23,7 +24,9 @@ function spend(state, price, cat) {
 function closeReport(state) {
   const r = state.report;
   if (r && !state.history.some((h) => h.day === r.day)) {
-    state.history.push({ day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {}, wait: r.wait, util: r.util, staffMin: r.staffMin });
+    const h = { day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {}, wait: r.wait, util: r.util, staffMin: r.staffMin };
+    if (r.hasStock) Object.assign(h, { used: r.used, cogs: r.cogs, out: r.out, outN: r.outN, waste: r.waste, wasteAmt: r.wasteAmt });
+    state.history.push(h);
     state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);
     state.stats.bestDay = Math.max(state.stats.bestDay || 0, r.sales); // この店の最高売上（地図の記録で見せる）
     compactHistory(state);
@@ -134,6 +137,20 @@ export function applyAction(state, action) {
     }
     case 'RESET_SHIFT':
       state.shift = defaultShift();
+      return okMsg();
+    // ── 発注（在庫のある店だけ）。赤字でも発注できる（代金は届いたときに払う） ──
+    case 'SET_ORDER': {
+      if (!stockOn(state) || !state.order || !STOCK_MAP[action.cat]) return fail('発注できません');
+      state.order.qty[action.cat] = Math.max(0, Math.min(ORDER_MAX, Math.round(action.qty)));
+      return okMsg();
+    }
+    case 'SET_ORDER_REPEAT':
+      if (!stockOn(state) || !state.order) return fail('発注できません');
+      state.order.repeat = !!action.repeat;
+      return okMsg();
+    case 'CLEAR_ORDER':
+      if (!stockOn(state) || !state.order) return fail('発注できません');
+      for (const k of Object.keys(state.order.qty)) state.order.qty[k] = 0;
       return okMsg();
     case 'COPY_HALL_TASKS': {
       // この人の設定を、ホールスタッフ全員にコピーする

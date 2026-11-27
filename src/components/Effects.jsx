@@ -43,7 +43,7 @@ export default function Effects({ store, toast }) {
   const banner = banners[0];
   useEffect(() => {
     if (!banner) return undefined;
-    const t = setTimeout(() => setBanners((b) => b.slice(1)), banner.recipes.length || banner.items.length ? 4200 : 2400);
+    const t = setTimeout(() => setBanners((b) => b.slice(1)), banner.recipes.length || banner.items.length || banner.stock?.length ? 4200 : 2400);
     return () => clearTimeout(t);
   }, [banner]);
 
@@ -79,6 +79,7 @@ export default function Effects({ store, toast }) {
               </div>
             )}
             {banner.items.length > 0 && <div className="unlock-items">ショップに追加：{banner.items.join('、')}</div>}
+            {banner.stock?.length > 0 && <div className="unlock-items">新メニューで使う食材：{banner.stock.join('、')}（発注で注文できます）</div>}
             <div className="levelup-tap">タップでとじる</div>
           </div>
         </div>

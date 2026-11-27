@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn } from '../game/state.js';
+import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn, stockOn } from '../game/state.js';
+import { STOCK_MAP } from '../data/stock.js';
 import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
 const TABS = [
@@ -17,7 +18,8 @@ function buildRecords(state) {
   const today = closed ? state.day + 1 : state.day;
   const d = state.daily;
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
-  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, wait: d.wait, util: d.util, staffMin, today: true }];
+  const stock = stockOn(state) ? { used: d.used, cogs: d.cogs || 0, out: d.out, outN: d.outN || 0, waste: d.waste, wasteAmt: d.wasteAmt || 0 } : {};
+  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, wait: d.wait, util: d.util, staffMin, ...stock, today: true }];
 }
 
 function DayPicker({ records, sel, setSel }) {
@@ -92,10 +94,21 @@ export function Metrics({ state, records, sel, setSel, cur }) {
         <Stat label="キッチン稼働率" value={pct(k)} />
         <Stat label="ホール稼働率" value={pct(h)} />
         {wageOn(state) && <Stat label="人件費" value={yen(labor)} sub={cur.sales > 0 ? `売上の ${Math.round((labor / cur.sales) * 100)}%` : null} />}
+        {cur.cogs != null && (
+          <>
+            <Stat label="原価率" value={cur.sales > 0 ? `${Math.round(((cur.cogs + (cur.wasteAmt || 0)) / cur.sales) * 100)}%` : '—'} sub={`使った食材 ${yen(cur.cogs)}＋廃棄 ${yen(cur.wasteAmt || 0)}`} />
+            <Stat label="品切れ" value={`${cur.outN || 0}回`} sub={catList(cur.out, '回')} />
+            <Stat label="廃棄額" value={yen(cur.wasteAmt || 0)} sub={catList(cur.waste, '食')} />
+          </>
+        )}
       </div>
+      {cur.cogs != null && <div className="heat-legend"><span>原価率＝（使った食材の原価＋期限切れで捨てた食材）÷ 売上。品切れ＝食べたい料理の食材が足りず、頼めなかった回数</span></div>}
     </>
   );
 }
+
+// { カテゴリ: 数 } を「麺 3回・卵 1回」のような文字にする
+const catList = (obj, unit) => Object.entries(obj || {}).filter(([, n]) => n > 0).map(([c, n]) => `${STOCK_MAP[c]?.name || c} ${n}${unit}`).join('・') || null;
 
 function Stat({ label, value, sub, hot }) {
   return (

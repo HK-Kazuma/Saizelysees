@@ -14,6 +14,8 @@ import { buildLayout } from './layout.js';
 import { wageOf } from '../data/shop.js';
 import { checkTips } from './mail.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
+import { canMake, useStock, recordStockout, deliverStock, discardExpired } from './stock.js';
+import { STOCKOUT_LEAVE } from '../data/stock.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
 const COMPLAINERS_PER_DAY = 2; // クレーマーが来るのは1日にこの回数まで
@@ -180,7 +182,7 @@ function recordWait(state, c, angry) {
   if (angry) w[3] += 1;
 }
 
-function leaveAngry(state, c) {
+function leaveAngry(state, c, text = 'もう帰る！') {
   if (c.state === 'calling' || c.state === 'waiting') recordWait(state, c, true);
   removeOrderOf(state, c);
   freeSeat(state, c);
@@ -197,7 +199,7 @@ function leaveAngry(state, c) {
     const lost = takeHalfCoins(state);
     state.events.push({ type: 'penalty', text: `クレーマーを放置…所持金の半分（¥${lost}）を持っていかれた！` });
   }
-  state.events.push({ type: 'angry', x: c.x, y: c.y, text: c.complainer ? 'ふん！' : 'もう帰る！' });
+  state.events.push({ type: 'angry', x: c.x, y: c.y, text: c.complainer ? 'ふん！' : text });
   exitPath(state, c);
 }
 
@@ -233,6 +235,18 @@ function updatePayQueue(state, c) {
 
 // 注文を通す（店員が聞いたとき／お客さんがスマホで注文したとき）
 function placeOrder(state, c) {
+  // 在庫のある店：食べたい料理が品切れなら、ほかの料理にするか、あきらめて帰る（怒って帰った人に数える）
+  if (!canMake(state, c.recipeId)) {
+    recordStockout(state, c.recipeId);
+    const alt = availableRecipes(state).filter((x) => canMake(state, x.id));
+    if (!alt.length || Math.random() < STOCKOUT_LEAVE) {
+      leaveAngry(state, c, '品切れなら帰る…');
+      return;
+    }
+    c.recipeId = pick(alt).id;
+    state.events.push({ type: 'angry', x: c.x, y: c.y, text: '品切れか…' });
+  }
+  useStock(state, c.recipeId);
   const r = RECIPE_MAP[c.recipeId];
   state.orders.push({ id: newId(state), customerId: c.id, recipeId: c.recipeId, status: 'queued', claimedBy: null, passSlot: null, quality: 2 });
   c.state = 'waiting';
@@ -1003,6 +1017,7 @@ function stepClock(state, dt) {
     state.day += 1;
     state.spawnTimer = 2;
     state.events.push({ type: 'clock', text: `${state.day}日目 開店！` });
+    deliverStock(state); // 発注した食材が届く（在庫のある店だけ）
   } else if (crossed(LAST_ORDER_MIN)) {
     state.events.push({ type: 'clock', text: 'ラストオーダーです（21:30）' });
   } else if (crossed(CLOSE_MIN)) {
@@ -1010,6 +1025,7 @@ function stepClock(state, dt) {
     sendHomeCustomers(state);
   } else if (crossed(FAST_START_MIN)) {
     payWages(state);
+    discardExpired(state); // 期限が今日までの食材を捨てる（在庫のある店だけ）
     state.clockDelta = 0; // 支払ったあとは、今日ぶんの人件費を増やさない
     state.report = makeReport(state); // 1日のレポート。閉じるまで時間が止まる
     checkTips(state); // 条件を満たしたヒントのメール

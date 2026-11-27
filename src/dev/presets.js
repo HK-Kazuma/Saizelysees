@@ -3,7 +3,8 @@
 import { RECIPES } from '../data/recipes.js';
 import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, staffLimit } from '../data/shop.js';
 import { buildLayout } from '../game/layout.js';
-import { createInitialState, MAX_LEVEL, xpToNext, drinkCap, OPEN_MIN, ARRIVE_MIN } from '../game/state.js';
+import { createInitialState, MAX_LEVEL, xpToNext, drinkCap, OPEN_MIN, ARRIVE_MIN, startStock, stockOn } from '../game/state.js';
+import { STOCK_CATS } from '../data/stock.js';
 import { HALL_SKILLS, SKILL_MAX, normalizeSkills } from '../data/staffTasks.js';
 import { addXp, syncWorkers } from '../game/simulation.js';
 import { STORE_MAP } from '../data/stores.js';
@@ -40,6 +41,7 @@ function build({ level = 1, coins = 1000, upgrade = false, only = null } = {}) {
     );
   }
   if (s.equipment.drink.owned) s.drinkStock = drinkCap(s);
+  startStock(s); // 在庫と発注書を、このレベルのメニューに合わせる
   return s;
 }
 
@@ -110,6 +112,17 @@ export function applyDevAction(state, action) {
       if (!STORE_MAP[action.id]) return { ok: false, msg: 'unknown store' };
       state.storeId = action.id;
       state.stage.startDay = state.day;
+      if (stockOn(state)) startStock(state); // 在庫と発注書を、いまのメニューに合わせて作り直す
+      return { ok: true };
+    }
+    case 'DEV_STOCK': {
+      // 在庫の確認用：fill＝全カテゴリ+30食（期限は今日から）／empty＝すべて0／expire＝すべて今日で期限切れにする
+      for (const c of STOCK_CATS) {
+        const lots = (state.stock[c.id] ||= []);
+        if (action.mode === 'fill') lots.push({ n: 30, exp: c.life == null ? null : state.day + c.life - 1 });
+        else if (action.mode === 'empty') lots.length = 0;
+        else if (action.mode === 'expire') lots.forEach((l) => { l.exp = state.day; });
+      }
       return { ok: true };
     }
     case 'DEV_BEST':
