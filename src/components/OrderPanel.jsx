@@ -35,7 +35,7 @@ export default function OrderPanel({ state, act, onClose }) {
         </div>
         <div className="si-body">
           <div className="st-help">
-            食材は{night ? '次の開店時' : '明日の開店時'}に届き、代金は届いたときに払います（赤字のときも届きます）。料理を注文されると在庫が減り、足りないと品切れになります。期限が切れた食材は、その日の閉店後に捨てます。
+            食材は{night ? '次の開店時' : '明日の開店時'}に届き、代金は届いたときに払います（赤字のときも届きます）。料理を注文されると在庫が減り、足りないと品切れになります。期限が切れた食材は、その日の閉店後に捨てます。料理ごとの販売数と使う食材は「店舗情報」の「料理」で見られます（前の店の記録も）。
           </div>
           <div className="order-table">
             <div className="order-row head">

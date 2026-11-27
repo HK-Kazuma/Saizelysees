@@ -25,6 +25,9 @@ function closeReport(state) {
   const r = state.report;
   if (r && !state.history.some((h) => h.day === r.day)) {
     const h = { day: r.day, sales: r.sales, served: r.served, angry: r.angry, expense: r.expense || {}, wait: r.wait, util: r.util, staffMin: r.staffMin };
+    // 料理ごとの販売 { 料理ID: [個数, 金額] } とドリンクバーの売上
+    h.sold = Object.fromEntries(r.items.map((it) => [it.id, [it.n, it.amount]]));
+    h.drinkSales = r.drinkSales || 0;
     if (r.hasStock) Object.assign(h, { used: r.used, cogs: r.cogs, out: r.out, outN: r.outN, waste: r.waste, wasteAmt: r.wasteAmt });
     state.history.push(h);
     state.bestDaySales = Math.max(state.bestDaySales || 0, r.sales);

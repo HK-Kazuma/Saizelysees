@@ -1024,3 +1024,14 @@ button { font-family: inherit; color: inherit; cursor: pointer; touch-action: ma
 .order-repeat { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-right: auto; }
 .order-repeat input { width: 18px; height: 18px; }
 .stock-line .bad { color: #c0211a; font-weight: 700; }
+
+/* 料理ごとの販売 */
+.ds-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+.ds-cats span { display: flex; align-items: baseline; gap: 4px; padding: 4px 6px; background: var(--white); box-shadow: 0 0 0 2px var(--ink); }
+.ds-cats small { font-size: 11px; color: #6a5a4a; margin-right: auto; }
+.ds-cats b { font-size: 14px; }
+.ds-cats em { font-size: 10px; font-style: normal; color: #7a6a5a; }
+.ds-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 50px 60px 70px; gap: 6px; align-items: center; padding: 4px 8px; font-size: 13px; border-bottom: 2px dashed var(--cream-d); }
+.ds-row.head { font-size: 11px; color: #6a5a4a; background: var(--cream-d); }
+.ds-row > span:nth-child(n+3) { text-align: right; font-variant-numeric: tabular-nums; }
+.ds-row em { display: block; font-size: 10px; font-style: normal; color: #7a6a5a; }

@@ -282,6 +282,16 @@ export function compactHistory(state) {
     m.served += r.served || 0;
     m.angry += r.angry || 0;
     for (const [cat, v] of Object.entries(r.expense || {})) m.expense[cat] = (m.expense[cat] || 0) + v;
+    // 料理ごとの販売（記録のある日だけ。soldDays は記録のあった日数）
+    if (r.sold) {
+      m.sold ||= {};
+      m.soldDays = (m.soldDays || 0) + 1;
+      m.drinkSales = (m.drinkSales || 0) + (r.drinkSales || 0);
+      for (const [id, [n, amount]] of Object.entries(r.sold)) {
+        const cur = m.sold[id] || [0, 0];
+        m.sold[id] = [cur[0] + n, cur[1] + amount];
+      }
+    }
   }
   monthly.sort((a, b) => a.block - b.block);
 }

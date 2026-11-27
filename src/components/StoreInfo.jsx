@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn, stockOn } from '../game/state.js';
 import { STOCK_MAP } from '../data/stock.js';
+import DishSales from './DishSales.jsx';
 import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
 const TABS = [
   { id: 'overview', name: '概要' },
   { id: 'sales', name: '売上' },
+  { id: 'dishes', name: '料理' },
   { id: 'graph', name: 'グラフ' },
   { id: 'expense', name: '出費' },
   { id: 'metrics', name: '指標' },
@@ -207,6 +209,8 @@ export default function StoreInfo({ state, onClose }) {
               {bestLine}
             </>
           )}
+
+          {tab === 'dishes' && <DishSales state={state} />}
 
           {tab === 'graph' && (
             <>

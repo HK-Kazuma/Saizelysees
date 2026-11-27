@@ -16,6 +16,7 @@ import { checkTips } from './mail.js';
 import { hallPrefOf, hallSkillOf, skillTimeMult } from '../data/staffTasks.js';
 import { canMake, useStock, recordStockout, deliverStock, discardExpired } from './stock.js';
 import { STOCKOUT_LEAVE } from '../data/stock.js';
+import { pickByPopularity } from '../data/popularity.js';
 
 export const SPEED = { customer: 1.9, hall: 2.7, manager: 3.6, kitchen: 2.6 };
 const COMPLAINERS_PER_DAY = 2; // クレーマーが来るのは1日にこの回数まで
@@ -105,7 +106,7 @@ function spawnCustomer(state) {
     path: [],
     state: 'entering',
     seatId: seat.id,
-    recipeId: pick(menu).id,
+    recipeId: pickByPopularity(state.storeId, menu).id, // 料理の人気（店ごと）で選ぶ
     patience: 0,
     maxPatience: 1,
     timer: 0,
@@ -243,7 +244,7 @@ function placeOrder(state, c) {
       leaveAngry(state, c, '品切れなら帰る…');
       return;
     }
-    c.recipeId = pick(alt).id;
+    c.recipeId = pickByPopularity(state.storeId, alt).id;
     state.events.push({ type: 'angry', x: c.x, y: c.y, text: '品切れか…' });
   }
   useStock(state, c.recipeId);
