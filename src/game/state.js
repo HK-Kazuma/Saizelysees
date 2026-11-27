@@ -5,7 +5,6 @@ import { buildLayout } from './layout.js';
 import { STORE_MAP, nextStoreOf, FIRST_STORE, START_COINS, TRANSFER_COST, ANGRY_PENALTY, evaluate, startGrants } from '../data/stores.js';
 import { checkTips } from './mail.js';
 import { normalizeHallTasks, normalizeSkills, MANAGER_SKILLS, defaultSkills } from '../data/staffTasks.js';
-import { STOCK_CATS, STOCK_MAP, STOCK_USE, START_STOCK, START_ORDER, ORDER_MAX } from '../data/stock.js';
 
 // セーブは「会社全体」と「店舗ごと」に分けて保存する（v2）。旧セーブ(v1)は1店舗ぶんが1つにまとまっていた。
 // 開発サーバーでは別のキーに保存する（プリセットで本番のセーブを壊さないため）
@@ -72,21 +71,13 @@ export function unlocksAt(level, state) {
       ...EQUIPMENT.filter((e) => e.lv === level && !state?.equipment[e.id]?.owned).map((e) => e.name),
       ...STAFF.filter((s) => s.lv === level).map((s) => s.name),
       ...DECOR.filter((d) => d.lv === level && !state?.decor[d.id]).map((d) => d.name),
-      ...(level === STORE_MAP[state?.storeId]?.wageLv && level > 1 ? ['人件費（時給）がかかるようになります'] : []),
       ...(level === HALL_BONUS_LV ? [`ホールスタッフの上限 +${HALL_BONUS}人`] : []),
       ...STORE_SIZES.filter((s) => s.lv === level && s.price > 0).map((s) => `店舗拡張「${s.name}」`),
     ],
-    stock: state && stockOn(state) ? newStockCats(state, level) : [],
   };
 }
 
-// そのレベルの新メニューで使う食材のうち、まだ発注書に入っていないもの（レベルアップ演出用。名前の配列）
-function newStockCats(state, level) {
-  const cats = new Set(RECIPES.filter((r) => r.lv === level).flatMap((r) => Object.keys(STOCK_USE[r.id] || {})));
-  return STOCK_CATS.filter((c) => cats.has(c.id) && !(state.order?.qty?.[c.id] > 0)).map((c) => c.name);
-}
-
-// ───────── シフトと時間帯の指標（1時間ごとの12コマ。10時台〜21時台。出勤の9時台は10時台、閉店後の22時台は21時台に含める） ─────────
+// ───────── 時間帯の指標（1時間ごとの12コマ。10時台〜21時台。出勤の9時台は10時台、閉店後の22時台は21時台に含める） ─────────
 export const SLOTS = 12;
 export const slotOf = (clock) => Math.min(SLOTS - 1, Math.max(0, Math.floor(clock / 60) - 10));
 export const slotLabel = (i) => `${10 + i}時`;
@@ -96,62 +87,12 @@ export const slotLabel = (i) => `${10 + i}時`;
 //   util: 時間帯ごとの [出勤していた分数, 仕事をしていた分数]（キッチン・ホール別）
 //   drinkSales: ドリンクバーの売上（sold の金額は料理だけ。sold の合計 + drinkSales = sales）
 //   wu:   スタッフ1人ずつの [出勤していた分数, 仕事をしていた分数]（今日だけ。'hall0' など）
-//   在庫のある店（草津〜）だけ使う：
-//   used: カテゴリごとに使った食数 / cogs: 使った食材の原価（円） / out: 品切れのカテゴリごとの回数 / outN: 品切れでお客さんが頼めなかった回数
-//   waste: 期限切れで捨てたカテゴリごとの食数 / wasteAmt: 捨てた食材の原価（円）
 export const emptyDaily = () => ({
   sold: {}, sales: 0, drinkSales: 0, served: 0, angry: 0, expense: {},
-  used: {}, cogs: 0, out: {}, outN: 0, waste: {}, wasteAmt: 0,
   wait: Array.from({ length: SLOTS }, () => [0, 0, 0, 0]),
   util: { kitchen: Array.from({ length: SLOTS }, () => [0, 0]), hall: Array.from({ length: SLOTS }, () => [0, 0]) },
   wu: {},
 });
-
-// シフト：時間帯ごとの出勤人数。null は「雇っている全員」。シフトのある店（草津〜）だけ使う
-export const shiftOn = (state) => !!STORE_MAP[state.storeId]?.shift;
-// 人件費がかかる状態か（シフトのある店は最初から。彦根は店のレベルが wageLv になってから）
-export const wageOn = (state) => state.level >= (STORE_MAP[state.storeId]?.wageLv ?? Infinity);
-export const defaultShift = () => ({ kitchen: Array(SLOTS).fill(null), hall: Array(SLOTS).fill(null) });
-export function normalizeShift(obj) {
-  const out = defaultShift();
-  for (const role of ['kitchen', 'hall']) {
-    for (let i = 0; i < SLOTS; i++) {
-      const v = obj?.[role]?.[i];
-      if (Number.isInteger(v) && v >= 0) out[role][i] = v;
-    }
-  }
-  return out;
-}
-// いまの時間帯に出勤する人数
-export const dutyCount = (state, role, clock = state.clock) => (shiftOn(state) ? Math.min(state.staff[role], state.shift[role][slotOf(clock)] ?? state.staff[role]) : state.staff[role]);
-export const onDutyIdx = (state, role, index, clock = state.clock) => index < dutyCount(state, role, clock);
-
-// ───────── 発注と在庫（在庫のある店＝草津〜だけ。彦根は在庫を気にせず作れる） ─────────
-// state.stock: { カテゴリ: [{ n: 食数, exp: 最後に使える日(null=期限なし) }] }（届いた順。古いものから使う）
-// state.order: { qty: { カテゴリ: 次の朝に届く食数 }, repeat: 毎日同じ量を届けるか（定期発注） }
-export const stockOn = (state) => !!STORE_MAP[state.storeId]?.stock;
-// いまのメニュー（解放済みで設備が揃っている料理）で使うカテゴリ
-export const neededCats = (state) => new Set(availableRecipes(state).flatMap((r) => Object.keys(STOCK_USE[r.id] || {})));
-export const lotExp = (catId, day) => (STOCK_MAP[catId].life == null ? null : day + STOCK_MAP[catId].life - 1);
-// 開店時の在庫（無料）と、最初の発注書。いまのメニューで使うカテゴリだけ入れる
-export function startStock(state) {
-  const need = neededCats(state);
-  state.stock = Object.fromEntries(STOCK_CATS.map((c) => [c.id, need.has(c.id) ? [{ n: START_STOCK, exp: lotExp(c.id, state.day) }] : []]));
-  state.order = { qty: Object.fromEntries(STOCK_CATS.map((c) => [c.id, need.has(c.id) ? START_ORDER : 0])), repeat: true };
-}
-export function normalizeStock(obj) {
-  return Object.fromEntries(STOCK_CATS.map((c) => [c.id, (Array.isArray(obj?.[c.id]) ? obj[c.id] : [])
-    .filter((l) => l && l.n > 0)
-    .map((l) => ({ n: Math.round(l.n), exp: Number.isFinite(l.exp) ? l.exp : null }))]));
-}
-export function normalizeOrder(obj) {
-  const qty = Object.fromEntries(STOCK_CATS.map((c) => {
-    const v = obj?.qty?.[c.id];
-    return [c.id, Number.isFinite(v) ? Math.max(0, Math.min(ORDER_MAX, Math.round(v))) : 0];
-  }));
-  return { qty, repeat: obj?.repeat !== false };
-}
-export const stockCount = (state, catId) => (state.stock?.[catId] || []).reduce((s, l) => s + l.n, 0);
 
 // 出費の種類（店舗情報の出費タブ用）
 export const EXPENSE_CATS = [
@@ -159,8 +100,8 @@ export const EXPENSE_CATS = [
   { id: 'staff', name: 'スタッフの雇用' },
   { id: 'decor', name: '装飾' },
   { id: 'expand', name: '店舗の拡張・テーブル' },
-  { id: 'food', name: '食材の仕入れ' },
-  { id: 'labor', name: '人件費' },
+  { id: 'food', name: '食材の仕入れ', legacy: true }, // legacy: 廃止した出費。以前のセーブの記録を表示するためだけに残す
+  { id: 'labor', name: '人件費', legacy: true },
   { id: 'transfer', name: '人事異動（後任店長の採用）' },
   { id: 'penalty', name: 'クレーマー被害' },
 ];
@@ -178,8 +119,7 @@ export function makeReport(state) {
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
   return {
     day: state.day, items, sales: d.sales, drinkSales: d.drinkSales || 0, served: d.served, angry: d.angry, expense: { ...d.expense }, coins: state.coins, stage: stageSummary(state, d),
-    wait: d.wait, util: d.util, staffMin, labor: d.expense.labor || 0, hasWage: wageOn(state),
-    hasStock: stockOn(state), used: { ...d.used }, cogs: d.cogs || 0, out: { ...d.out }, outN: d.outN || 0, waste: { ...d.waste }, wasteAmt: d.wasteAmt || 0,
+    wait: d.wait, util: d.util, staffMin,
   };
 }
 
@@ -220,10 +160,6 @@ export function createInitialState() {
     report: null, // 閉店後のレポート（表示中は時間が止まる）
     historyMonthly: [], // 古い日ごとの記録を30日ぶんずつにまとめたもの { block, days, sales, served, angry, expense }
     stats: { sales: 0, served: 0, angry: 0, perfect: 0 },
-    wageAcc: 0, // 今日ぶんの人件費（閉店後のレポートが出るときにまとめて払う）
-    shift: defaultShift(), // 時間帯ごとの出勤人数 { kitchen: [12コマ], hall: [12コマ] }
-    stock: {}, // 在庫 { カテゴリ: [{ n, exp }] }（在庫のある店＝草津〜だけ使う）
-    order: null, // 発注書 { qty: { カテゴリ: 食数 }, repeat }
     complainerPlan: null, // その日のクレーマーの予定 { day, times: [まだ来ていない出現時刻(分)] }
     // ここから「会社全体」（店をまたいで引き継ぐ）
     mails: [], // 本部からのメール { id, kind, key, params, day, store, read }（会社全体）
@@ -258,12 +194,11 @@ export function createInitialState() {
     layout: null,
   };
   state.layout = buildLayout(state);
-  startStock(state);
   return state;
 }
 
 const COMPANY_KEYS = ['managerSkills', 'bestDaySales', 'storeRecords', 'mails'];
-const STORE_KEYS = ['stage', 'shift', 'stock', 'order', 'wageAcc', 'complainerPlan', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
+const STORE_KEYS = ['stage', 'complainerPlan', 'day', 'clock', 'daily', 'history', 'historyMonthly', 'drinkStock', 'hallPrefs', 'hallSkills', 'coins', 'xp', 'level', 'stats', 'sizeIdx', 'tables', 'equipment', 'staff', 'decor'];
 const pick = (state, keys) => Object.fromEntries(keys.map((k) => [k, state[k]]));
 
 // 日ごとの記録は直近 HISTORY_KEEP 日だけ残し、それより古いものは30日ぶんずつにまとめる
@@ -357,19 +292,13 @@ export function loadGame() {
       }
       state.hallPrefs = Array.from(state.hallPrefs || [], (list) => normalizeHallTasks(list));
       state.hallSkills = Array.from(state.hallSkills || [], (s) => normalizeSkills(s));
-      state.shift = normalizeShift(state.shift);
-      // 在庫と発注書は丸ごと置き換える（初期値の在庫と混ざらないように）。在庫の記録がない古いセーブは、いまのメニューで始める
-      if (data.stock !== undefined) {
-        state.stock = normalizeStock(data.stock);
-        state.order = normalizeOrder(data.order);
-      } else startStock(state);
       // 最高売上の記録がなければ、日ごとの記録から求める
       state.bestDaySales = Math.max(state.bestDaySales || 0, ...state.history.map((h) => h.sales || 0));
       compactHistory(state);
       // ステージの記録がない古いセーブは、今の日からこの店のステージを始める
       if (data.stage === undefined) state.stage.startDay = state.day;
       state.layout = buildLayout(state);
-      // 古いセーブ（ドリンクバー設置済みで在庫の記録なし）は満タンから始める
+      // 古いセーブ（ドリンクバー設置済みでドリンク残量の記録なし）は満タンから始める
       if (state.equipment.drink?.owned && data.drinkStock === undefined) state.drinkStock = drinkCap(state);
       // レポート表示中(23:00)にリロードしたときは、レポートをもう一度出す
       if (Math.round(state.clock) === FAST_START_MIN && state.daily.served + state.daily.angry > 0) state.report = makeReport(state);

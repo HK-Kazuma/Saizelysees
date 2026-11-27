@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { appeal, EXPENSE_CATS, sumExpense, SLOTS, wageOn, stockOn } from '../game/state.js';
-import { STOCK_MAP } from '../data/stock.js';
+import { appeal, EXPENSE_CATS, sumExpense, SLOTS } from '../game/state.js';
 import DishSales from './DishSales.jsx';
 import { DECOR, STORE_SIZES, STAFF, staffLimit } from '../data/shop.js';
 
@@ -20,8 +19,7 @@ function buildRecords(state) {
   const today = closed ? state.day + 1 : state.day;
   const d = state.daily;
   const staffMin = ['kitchen', 'hall'].reduce((s, r) => s + d.util[r].reduce((a, u) => a + u[0], 0), 0);
-  const stock = stockOn(state) ? { used: d.used, cogs: d.cogs || 0, out: d.out, outN: d.outN || 0, waste: d.waste, wasteAmt: d.wasteAmt || 0 } : {};
-  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, wait: d.wait, util: d.util, staffMin, ...stock, today: true }];
+  return [...state.history, { day: today, sales: d.sales, served: d.served, angry: d.angry, expense: d.expense || {}, wait: d.wait, util: d.util, staffMin, today: true }];
 }
 
 function DayPicker({ records, sel, setSel }) {
@@ -44,9 +42,8 @@ const utilPct = (u) => (u && u[0] > 0 ? (u[1] / u[0]) * 100 : null);
 const utilColor = (p) => (p == null ? '#e8e4d8' : `hsl(210, 70%, ${Math.round(92 - Math.min(100, p) * 0.45)}%)`);
 const sumUtil = (arr) => (arr || []).reduce((a, u) => [a[0] + u[0], a[1] + u[1]], [0, 0]);
 
-export function Metrics({ state, records, sel, setSel, cur }) {
+export function Metrics({ records, sel, setSel, cur }) {
   const rows = records.slice(-7); // 直近7日（古い記録には時間帯の指標がないことがある）
-  const labor = cur.expense.labor || 0;
   const hours = (cur.staffMin || 0) / 60;
   const k = utilPct(sumUtil(cur.util?.kitchen));
   const h = utilPct(sumUtil(cur.util?.hall));
@@ -95,22 +92,10 @@ export function Metrics({ state, records, sel, setSel, cur }) {
         <Stat label="人時売上高" value={hours > 0 ? yen(cur.sales / hours) : '—'} sub="スタッフ1人が1時間で生む売上" />
         <Stat label="キッチン稼働率" value={pct(k)} />
         <Stat label="ホール稼働率" value={pct(h)} />
-        {wageOn(state) && <Stat label="人件費" value={yen(labor)} sub={cur.sales > 0 ? `売上の ${Math.round((labor / cur.sales) * 100)}%` : null} />}
-        {cur.cogs != null && (
-          <>
-            <Stat label="原価率" value={cur.sales > 0 ? `${Math.round(((cur.cogs + (cur.wasteAmt || 0)) / cur.sales) * 100)}%` : '—'} sub={`使った食材 ${yen(cur.cogs)}＋廃棄 ${yen(cur.wasteAmt || 0)}`} />
-            <Stat label="品切れ" value={`${cur.outN || 0}回`} sub={catList(cur.out, '回')} />
-            <Stat label="廃棄額" value={yen(cur.wasteAmt || 0)} sub={catList(cur.waste, '食')} />
-          </>
-        )}
       </div>
-      {cur.cogs != null && <div className="heat-legend"><span>原価率＝（使った食材の原価＋期限切れで捨てた食材）÷ 売上。品切れ＝食べたい料理の食材が足りず、頼めなかった回数</span></div>}
     </>
   );
 }
-
-// { カテゴリ: 数 } を「麺 3回・卵 1回」のような文字にする
-const catList = (obj, unit) => Object.entries(obj || {}).filter(([, n]) => n > 0).map(([c, n]) => `${STOCK_MAP[c]?.name || c} ${n}${unit}`).join('・') || null;
 
 function Stat({ label, value, sub, hot }) {
   return (
@@ -225,7 +210,7 @@ export default function StoreInfo({ state, onClose }) {
           {tab === 'metrics' && (
             <>
               {dayPicker}
-              <Metrics state={state} records={records} sel={sel} setSel={setSel} cur={cur} />
+              <Metrics records={records} sel={sel} setSel={setSel} cur={cur} />
             </>
           )}
 
@@ -238,7 +223,8 @@ export default function StoreInfo({ state, onClose }) {
               </div>
               <div className="si-table">
                 <div className="si-row head"><span>内訳</span><span>{cur.day}日目</span><span>累計</span></div>
-                {EXPENSE_CATS.map((c) => (
+                {/* legacy の区分は、古いセーブに記録があるときだけ出す */}
+                {EXPENSE_CATS.filter((c) => !c.legacy || records.some((r) => r.expense[c.id])).map((c) => (
                   <div key={c.id} className="si-row">
                     <span>{c.name}</span>
                     <span>{yen(cur.expense[c.id] || 0)}</span>

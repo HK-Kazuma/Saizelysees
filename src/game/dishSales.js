@@ -1,7 +1,7 @@
 // 料理ごとの販売の集計（店舗情報の「料理」タブ）。いまの店は state から、過去の店は店ごとのセーブから読む（読むだけ）。
 import { storeKey } from './state.js';
 import { STORES } from '../data/stores.js';
-import { stockUse } from '../data/stock.js';
+import { ingredientUse } from '../data/ingredients.js';
 
 function readSaved(id) {
   try {
@@ -31,7 +31,7 @@ export const salesDays = (state, id) => dayRecords(state, id).days.map((h) => ({
 
 // range: 日の番号（その日だけ）／'week'（閉店した直近7日）／'all'（記録のある全部の日）
 // まだ閉店した日がなければ、week と all は進行中の今日を見せる
-// 戻り値: { days: 日数, drinkSales, items: [{ id, n, amount }]（多い順）, cats: { 在庫カテゴリ: 使う食数 } }
+// 戻り値: { days: 日数, drinkSales, items: [{ id, n, amount }]（多い順）, cats: { 食材カテゴリ: 使う食数 } }
 export function dishSales(state, id, range) {
   const { days, monthly } = dayRecords(state, id);
   const closed = days.filter((h) => !h.today);
@@ -54,6 +54,6 @@ export function dishSales(state, id, range) {
   }
   const items = Object.values(total).sort((a, b) => b.n - a.n || b.amount - a.amount);
   const cats = {};
-  for (const it of items) for (const [c, use] of Object.entries(stockUse(it.id))) cats[c] = (cats[c] || 0) + use * it.n;
+  for (const it of items) for (const [c, use] of Object.entries(ingredientUse(it.id))) cats[c] = (cats[c] || 0) + use * it.n;
   return { days: count, drinkSales, items, cats };
 }

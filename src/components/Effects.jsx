@@ -3,6 +3,9 @@ import { tileToCss } from '../render/view.js';
 import DishIcon from './DishIcon.jsx';
 import { playAngrySfx, playCashSfx } from '../audio/bgm.js';
 
+// 会計の表示。複数個なら「単品の価格×個数」（ドリンクバー代は後ろに足す）
+const saleText = (e) => (e.qty > 1 ? `+¥${e.unit}×${e.qty}${e.drink ? ` +¥${e.drink}` : ''}` : `+¥${e.amount}`);
+
 // シミュレーションから届くイベントを、DOMのアニメーションに変換する
 export default function Effects({ store, toast }) {
   const [floats, setFloats] = useState([]);
@@ -16,7 +19,7 @@ export default function Effects({ store, toast }) {
           playCashSfx(e.quality === 3); // お会計が完了した「ちゃキーン」
           const p = tileToCss(e.x, e.y, 26);
           const k = ++id.current;
-          setFloats((f) => [...f, { k, x: p.x, y: p.y, text: `+¥${e.amount}`, sub: `+${e.xp}EXP`, cls: e.quality === 3 ? 'gold perfect' : 'gold' }]);
+          setFloats((f) => [...f, { k, x: p.x, y: p.y, text: saleText(e), sub: `+${e.xp}EXP`, cls: e.quality === 3 ? 'gold perfect' : 'gold' }]);
           setTimeout(() => setFloats((f) => f.filter((x) => x.k !== k)), 1400);
         } else if (e.type === 'angry') {
           const p = tileToCss(e.x, e.y, 34);
@@ -43,7 +46,7 @@ export default function Effects({ store, toast }) {
   const banner = banners[0];
   useEffect(() => {
     if (!banner) return undefined;
-    const t = setTimeout(() => setBanners((b) => b.slice(1)), banner.recipes.length || banner.items.length || banner.stock?.length ? 4200 : 2400);
+    const t = setTimeout(() => setBanners((b) => b.slice(1)), banner.recipes.length || banner.items.length ? 4200 : 2400);
     return () => clearTimeout(t);
   }, [banner]);
 
@@ -79,7 +82,6 @@ export default function Effects({ store, toast }) {
               </div>
             )}
             {banner.items.length > 0 && <div className="unlock-items">ショップに追加：{banner.items.join('、')}</div>}
-            {banner.stock?.length > 0 && <div className="unlock-items">新メニューで使う食材：{banner.stock.join('、')}（発注で注文できます）</div>}
             <div className="levelup-tap">タップでとじる</div>
           </div>
         </div>

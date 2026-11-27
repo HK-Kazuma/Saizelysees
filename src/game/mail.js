@@ -1,5 +1,5 @@
 // メールの送信と、ヒントを送るタイミングの判定。メールは会社全体（state.mails）に溜まる。
-import { TIPS } from '../data/mails.js';
+import { TIPS, TIP_MAP } from '../data/mails.js';
 
 const MAX_MAILS = 100;
 
@@ -19,6 +19,8 @@ export function sendMail(state, { id, kind, key, params, read = false }, quiet =
 // 条件を満たしたヒントを送る。毎回呼んでよい（送るのは1回だけ）。
 // backlog: 初めてメール機能が入ったセーブ向け。すでに遊んでいて意味のないヒントは「既読」で入れ、通知は出さない
 export function checkTips(state, backlog = false) {
+  // なくなったヒントのメールは、古いセーブから取り除く
+  state.mails = state.mails.filter((m) => m.kind !== 'tip' || TIP_MAP[m.key]);
   let n = 0;
   for (const t of TIPS) {
     const id = t.scope === 'store' ? `tip:${t.id}@${state.storeId}` : `tip:${t.id}`;

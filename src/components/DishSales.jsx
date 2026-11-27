@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RECIPE_MAP } from '../data/recipes.js';
-import { STOCK_CATS, STOCK_MAP, stockUse } from '../data/stock.js';
+import { INGREDIENT_CATS, INGREDIENT_MAP, ingredientUse } from '../data/ingredients.js';
 import { STORE_MAP } from '../data/stores.js';
 import { salesStores, salesDays, dishSales } from '../game/dishSales.js';
 import DishIcon from './DishIcon.jsx';
@@ -8,7 +8,7 @@ import DishIcon from './DishIcon.jsx';
 const yen = (n) => `¥${Math.round(n).toLocaleString()}`;
 const avg = (n, days) => (n / days).toFixed(1);
 // 料理1品で使う食材（2食以上使うものは ×2 を付ける）
-const ingredientText = (id) => Object.entries(stockUse(id)).map(([c, n]) => `${STOCK_MAP[c].name}${n > 1 ? `×${n}` : ''}`).join('・');
+const ingredientText = (id) => Object.entries(ingredientUse(id)).map(([c, n]) => `${INGREDIENT_MAP[c].name}${n > 1 ? `×${n}` : ''}`).join('・');
 
 // 料理ごとの販売数と、使う食材。店と期間を切り替えて見る（過去の店の記録も見られる）
 export default function DishSales({ state }) {
@@ -38,7 +38,7 @@ export default function DishSales({ state }) {
         <>
           <div className="si-sub">使った食材の目安（{r.days}日ぶん。売れた料理から計算。かっこ内は1日あたり）</div>
           <div className="ds-cats">
-            {STOCK_CATS.filter((c) => r.cats[c.id]).map((c) => (
+            {INGREDIENT_CATS.filter((c) => r.cats[c.id]).map((c) => (
               <span key={c.id}><small>{c.name}</small><b>{r.cats[c.id]}食</b><em>（{avg(r.cats[c.id], r.days)}）</em></span>
             ))}
           </div>
