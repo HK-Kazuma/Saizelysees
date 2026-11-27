@@ -126,7 +126,7 @@ export const EXPENSE_CATS = [
 ];
 // ドリンクバー：1人ぶんの料金と、交換までに出せるドリンクの数（強化で増える）
 export const drinkFee = (state) => 100 * (state.equipment.drink?.lv ?? 1);
-export const drinkCap = (state) => 8 + 4 * ((state.equipment.drink?.lv ?? 1) - 1);
+export const drinkCap = (state) => 12 + 4 * ((state.equipment.drink?.lv ?? 1) - 1);
 export const sumExpense = (e) => Object.values(e || {}).reduce((s, v) => s + v, 0);
 
 // 23:00に表示するレポート。売れた料理を多い順に並べる
