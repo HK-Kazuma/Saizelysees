@@ -83,6 +83,7 @@ function speckle(g, x, y, n, colors, seed) {
 const RT = {
   water: ['#5fa8d6', '#589fcc'], lotus: ['#5fa8d6', '#589fcc'], sand: ['#e8d9a8', '#e0cf9a'], stone: ['#c2bba9', '#b8b19e'],
   deck: ['#b88a5a', '#ad8050'], path: ['#dccba0', '#d4c294'], gravel: ['#dcd9cf', '#d2cfc4'],
+  lane: ['#a7a7a2', '#a1a19c'], parking: ['#9d9d98', '#9d9d98'],
 };
 const wet = (k) => k === 'water' || k === 'lotus';
 // 地域の地面がこのタイルを上書きするか。空き地はすべて、土地のまわりの道路(4タイル)より外へ延びる道路は湖・砂浜のときだけ
@@ -121,6 +122,9 @@ function regionTile(g, x, y, kind, scene, snow) {
     quad(g, x, y, x + 1, y + 0.05, shade(a, -0.15));
     quad(g, x, y + 0.5, x + 1, y + 0.55, shade(a, -0.12));
     quad(g, x + ((y % 2) ? 0.5 : 0), y, x + ((y % 2) ? 0.55 : 0.05), y + 1, shade(a, -0.15));
+  } else if (kind === 'parking') {
+    speckle(g, x, y, 4, [shade(a, -0.1), shade(a, 0.08)], x * 29 + y * 13);
+    quad(g, x + 0.1, y, x + 0.9, y + 0.06, snow ? '#cfd6de' : '#f4f4ee'); // 駐車場の白線（1タイル＝1台）
   } else if (kind === 'deck') {
     for (let i = 1; i < 4; i++) quad(g, x, y + i * 0.25, x + 1, y + i * 0.25 + 0.04, shade(a, -0.2));
   } else {
@@ -453,6 +457,10 @@ function drawProp(g, p) {
     case 'mountain': return B.mountain(g, p.u, p.v, p.w, p.h);
     case 'machiya': return B.machiya(g, p.u, p.v, p.du, p.dv, p.seed);
     case 'house': return B.house(g, p.u, p.v, p.du, p.dv, p.seed);
+    case 'residence': return B.residence(g, p.u, p.v, p.du, p.dv, p.seed, p.gate);
+    case 'cityHall': return B.cityHall(g, p.u, p.v);
+    case 'flagpole': return B.flagpole(g, p.u, p.v, p.kind);
+    case 'car': return B.car(g, p.u, p.v, p.seed);
     case 'shop': return B.shop(g, p.u, p.v, p.du, p.dv, p.seed);
     case 'mansion': return B.mansion(g, p.u, p.v, p.du, p.dv, p.h, p.seed);
     case 'honjin': return B.honjin(g, p.u, p.v);
