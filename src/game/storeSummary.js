@@ -54,7 +54,7 @@ export function summarizeStore(state, id) {
   const hall = Array.from({ length: d.staff.hall || 0 }, (_, i) => normalizeSkills(d.hallSkills[i]));
 
   return {
-    id, city: store.city, pref: store.pref, live,
+    id, name: store.name, pref: store.pref, live,
     rating: rec ? { rank: rec.rank, rate: rec.rate, score, sales: rec.sales, angry: rec.angry } : null,
     dayNo, days: store.days, goal: store.goal,
     level: d.level, coins: d.coins,

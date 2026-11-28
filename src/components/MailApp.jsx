@@ -15,7 +15,7 @@ export default function MailApp({ state, act, onClose }) {
   }, [cur?.id, cur?.read, act]);
 
   const view = cur ? renderMail(cur, { ...state, storeId: cur.store }) : null; // 届いた店の状態として本文を作る
-  const city = (m) => STORE_MAP[m.store]?.city || '';
+  const storeName = (m) => STORE_MAP[m.store]?.name || '';
 
   return (
     <div className="modal-back" onClick={onClose}>
@@ -36,7 +36,7 @@ export default function MailApp({ state, act, onClose }) {
                   return (
                     <button key={m.id} className={`mail-item ${m.id === sel ? 'on' : ''} ${m.read ? '' : 'unread'}`} onClick={() => setSel(m.id)}>
                       <b>{v.subject}</b>
-                      <small>{city(m)}店・{m.day}日目</small>
+                      <small>{storeName(m)}・{m.day}日目</small>
                     </button>
                   );
                 })}
@@ -45,7 +45,7 @@ export default function MailApp({ state, act, onClose }) {
                 {view && (
                   <>
                     <h3>{view.subject}</h3>
-                    <div className="mail-meta">差出人：{view.from}　／　{city(cur)}店 {cur.day}日目</div>
+                    <div className="mail-meta">差出人：{view.from}　／　{storeName(cur)} {cur.day}日目</div>
                     <div className="mail-body">{view.body}</div>
                   </>
                 )}

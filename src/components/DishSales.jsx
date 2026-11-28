@@ -23,7 +23,7 @@ export default function DishSales({ state }) {
       <div className="si-picker">
         {stores.length > 1 && (
           <select className="si-select" value={storeId} onChange={(e) => { setStoreId(e.target.value); setRange('week'); }} aria-label="店">
-            {stores.map((s) => <option key={s.id} value={s.id}>{s.city}店{s.id === state.storeId ? '（いまの店）' : ''}</option>)}
+            {stores.map((s) => <option key={s.id} value={s.id}>{s.name}{s.id === state.storeId ? '（いまの店）' : ''}</option>)}
           </select>
         )}
         <select className="si-select" value={range} onChange={(e) => setRange(/^\d+$/.test(e.target.value) ? Number(e.target.value) : e.target.value)} aria-label="期間">
@@ -33,7 +33,7 @@ export default function DishSales({ state }) {
         </select>
       </div>
       {r.items.length === 0 ? (
-        <div className="report-empty">{STORE_MAP[storeId].city}店の料理ごとの記録は、まだありません（お会計された料理が記録されます）</div>
+        <div className="report-empty">{STORE_MAP[storeId].name}の料理ごとの記録は、まだありません（お会計された料理が記録されます）</div>
       ) : (
         <>
           <div className="si-sub">使った食材の目安（{r.days}日ぶん。売れた料理から計算。かっこ内は1日あたり）</div>

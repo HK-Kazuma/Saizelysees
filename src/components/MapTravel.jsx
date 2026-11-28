@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { STORES, STORE_MAP, TRANSFER_COST } from '../data/stores.js';
-import { loadJapan, buildBase, drawMap, project, fitZoom, clampCam, boxOf, worldToScreen, ZS } from '../render/japanmap.js';
+import { loadJapan, buildBase, drawMap, project, fitZoom, clampCam, boxOf, worldToScreen, labelOffset, ZS } from '../render/japanmap.js';
 import { getCharSprite } from '../render/sprites.js';
 import StoreRecord from './StoreRecord.jsx';
 
@@ -9,16 +9,18 @@ const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2);
 const lerp = (a, b, t) => a + (b - a) * t;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const storePos = (s) => project(s.lon, s.lat);
-// 近畿地方がちょうど収まる範囲（経度134.1〜137.0、緯度33.4〜36.0）
-const KINKI = boxOf([project(134.1, 36.0), project(137.0, 33.4)]);
+// 関東地方がちょうど収まる範囲（経度138.4〜140.9、緯度34.9〜37.1）
+const KANTO = boxOf([project(138.4, 37.1), project(140.9, 34.9)]);
+// 店に寄るときの拡大率（地図1ピクセル＝約1kmを、画面の何CSSピクセルで描くか）。近い店どうしのピンが離れて見えるところまで寄る
+const CLOSE_ZOOM = 24;
 
-// 日本地図の画面。店の画面からズームアウトして日本列島→近畿地方へ。地図は店の画面と同じ操作（ドラッグ・ピンチ・ホイール）で自由に動かせる。
+// 日本地図の画面。店の画面からズームアウトして日本列島→関東地方へ。地図は店の画面と同じ操作（ドラッグ・ピンチ・ホイール）で自由に動かせる。
 //   mode='transfer'：人事異動。「出発」で次の店へ移動する（onDepart で人事異動を実行し、移動のあと onArrived）
 //   mode='view'    ：見るだけ
 export default function MapTravel({ state, mode = 'view', closing = false, onCancel, onDepart, onArrived }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
-  const cam = useRef({ cx: KINKI.cx, cy: KINKI.cy, k: 1 });
+  const cam = useRef({ cx: KANTO.cx, cy: KANTO.cy, k: 1 });
   const size = useRef({ w: 1, h: 1, dpr: 1 });
   const japan = useRef(null);
   const base = useRef({ key: '', cv: null });
@@ -43,7 +45,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
   // ピン
   const pinStatus = (i) => (i < curIdx ? 'done' : i === curIdx ? 'current' : toStore && STORES[i].id === toStore.id ? 'next' : 'future');
   const pinsRef = useRef([]);
-  pinsRef.current = STORES.map((s, i) => ({ ...storePos(s), id: s.id, name: s.city, status: pinStatus(i), dx: s.label?.[0], dy: s.label?.[1] }));
+  pinsRef.current = STORES.map((s, i) => ({ ...storePos(s), id: s.id, name: s.name, status: pinStatus(i), dx: s.label?.[0], dy: s.label?.[1] }));
   const unlockedSet = useCallback(() => new Set(STORES.filter((_, i) => i <= curIdxRef.current).map((s) => s.prefId)), []);
 
   // ───── カメラ演出 ─────
@@ -64,9 +66,9 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     };
     requestAnimationFrame(step);
   }), []);
-  const kinkiCam = () => {
+  const kantoCam = () => {
     const { w, h, dpr } = size.current;
-    return { cx: KINKI.cx, cy: KINKI.cy, k: Math.min(fitZoom(KINKI, w, h, 1.08), (18 * dpr) / ZS) };
+    return { cx: KANTO.cx, cy: KANTO.cy, k: Math.min(fitZoom(KANTO, w, h, 1.08), (18 * dpr) / ZS) };
   };
 
   // ───── 初期化：地図データの読み込み ─────
@@ -96,7 +98,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     return () => ro.disconnect();
   }, []);
 
-  // ───── 登場の演出：お店 → 近畿地方が大きく映るところまでズームアウト（そこからは自由に動かせる） ─────
+  // ───── 登場の演出：お店 → 関東地方が大きく映るところまでズームアウト（そこからは自由に動かせる） ─────
   useEffect(() => {
     if (!ready) return undefined;
     const token = ++anim.current;
@@ -106,13 +108,13 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
       const { w, h, dpr } = size.current;
       if (mode === 'transfer') {
         const here = storePos(STORES[fromIdx]);
-        cam.current = { cx: here.x, cy: here.y, k: (20 * dpr) / ZS }; // お店のあたりに寄った状態から
+        cam.current = { cx: here.x, cy: here.y, k: CLOSE_ZOOM * dpr }; // お店のあたりに寄った状態から
         clampCam(cam.current, w, h);
         await sleep(120);
         if (dead || anim.current !== token) return;
-        if (!(await flyTo(kinkiCam(), 1700))) return; // 近畿地方が大きく映るところまでズームアウト
+        if (!(await flyTo(kantoCam(), 1700))) return; // 関東地方が大きく映るところまでズームアウト
       } else {
-        cam.current = kinkiCam();
+        cam.current = kantoCam();
         clampCam(cam.current, w, h);
       }
       if (!dead) setPhase('free');
@@ -164,8 +166,8 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
   const interactive = phase === 'free' || phase === 'intro';
   const skipIntro = () => {
     if (phase !== 'intro') return;
-    anim.current += 1; // 演出を打ち切って、近畿地方の地図にする
-    cam.current = kinkiCam();
+    anim.current += 1; // 演出を打ち切って、関東地方の地図にする
+    cam.current = kantoCam();
     clampCam(cam.current, size.current.w, size.current.h);
     setPhase('free');
   };
@@ -215,13 +217,17 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     drag.current = null;
     if (d && !d.moved && phase === 'free') tap(d.x, d.y);
   };
-  // ピンをタップすると、その店の情報を出す
+  // ピンか店の名前をタップすると、その店の情報を出す（ピンが重なる店は、名前で選べる）
   const tap = (sx, sy) => {
     const { w, h, dpr } = size.current;
     let best = null;
     for (const pin of pinsRef.current) {
       const q = worldToScreen(cam.current, w, h, pin.x, pin.y);
-      const d = Math.hypot(q.x - sx, q.y - (sy + 16 * dpr));
+      const name = labelOffset(pin);
+      const d = Math.min(
+        Math.hypot(q.x - sx, q.y - (sy + 16 * dpr)),
+        Math.hypot(q.x + name.x * dpr - sx, q.y + name.y * dpr - sy),
+      );
       if (d < 32 * dpr && (!best || d < best.d)) best = { id: pin.id, d };
     }
     setSelected(best ? best.id : null);
@@ -239,7 +245,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     return () => cv.removeEventListener('wheel', onWheel);
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ───── 出発：人事異動を実行して、近畿の地図の上を次の店へ移動する ─────
+  // ───── 出発：人事異動を実行して、関東の地図の上を次の店へ移動する ─────
   const depart = async () => {
     if (phase !== 'free' || !toStore) return;
     const a = storePos(STORES[fromIdx]);
@@ -252,9 +258,9 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     route.current = [a, b];
     sprite.current = getCharSprite(MANAGER_LOOK);
     const { w, h, dpr } = size.current;
-    const box = boxOf([a, b], 44);
+    const box = boxOf([a, b], 1);
     // 2つの店が収まるところまで寄る
-    await flyTo({ cx: box.cx, cy: box.cy, k: Math.min(fitZoom(box, w, h * 0.7, 1.35), (14 * dpr) / ZS) }, 1000);
+    await flyTo({ cx: box.cx, cy: box.cy, k: Math.min(fitZoom(box, w, h * 0.7, 1.35), CLOSE_ZOOM * dpr) }, 1000);
     // 店長が歩いて移動する
     const t0 = performance.now();
     const dur = 2600;
@@ -272,7 +278,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
     traveler.current = null;
     route.current = null;
     // 次の店に寄っていく
-    await flyTo({ cx: b.x, cy: b.y, k: (20 * dpr) / ZS }, 1100);
+    await flyTo({ cx: b.x, cy: b.y, k: CLOSE_ZOOM * dpr }, 1100);
     if (anim.current !== token) return;
     setPhase('arrived');
     onArrived?.();
@@ -296,7 +302,7 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
       {sel && phase === 'free' && selIdx <= curIdx && <StoreRecord state={state} id={sel.id} onClose={() => setSelected(null)} />}
       {sel && phase === 'free' && selIdx > curIdx && (
         <div className="map-card">
-          <b>{sel.city}店</b>
+          <b>{sel.name}</b>
           <span>{sel.pref}・{selNote}</span>
         </div>
       )}
@@ -311,15 +317,15 @@ export default function MapTravel({ state, mode = 'view', closing = false, onCan
         {phase === 'free' && mode === 'transfer' && toStore && (
           <>
             <span className="map-msg">
-              <b>次の赴任先：{toStore.city}店（{toStore.pref}）</b>
+              <b>次の赴任先：{toStore.name}（{toStore.pref}）</b>
               <small>後任店長の採用費 ¥{TRANSFER_COST.toLocaleString()}　／　ドラッグで動かして、ほかの地域も見られます（過去の店のピンをタップすると記録が見られます）</small>
             </span>
             <button className="hud-btn" onClick={onCancel}>もどる</button>
-            <button className="hud-btn primary" disabled={!canPay} onClick={depart}>{toStore.city}へ出発</button>
+            <button className="hud-btn primary" disabled={!canPay} onClick={depart}>{toStore.name}へ出発</button>
           </>
         )}
-        {phase === 'travel' && <span className="map-msg">{toStore?.city}店へ移動中…</span>}
-        {phase === 'arrived' && <span className="map-msg">{toStore?.city}店に着任しました</span>}
+        {phase === 'travel' && <span className="map-msg">{toStore?.name}へ移動中…</span>}
+        {phase === 'arrived' && <span className="map-msg">{toStore?.name}に着任しました</span>}
       </div>
     </div>
   );

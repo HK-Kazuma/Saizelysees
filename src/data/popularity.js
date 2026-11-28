@@ -21,11 +21,11 @@ const BASE = {
 
 // 店ごとの好み（倍率）。書いていない料理は 1 倍
 const STORE_TASTE = {
-  hikone: {},
-  // 草津：駅前で若いお客さんが多い。ピザと肉料理がよく出る
-  kusatsu: { buffalo_pizza: 1.4, sausage_pizza: 1.5, corn_pizza: 1.4, hamburg: 1.3, mixed_grill: 1.4, chorizo: 1.3, potato_grill: 1.3, wakame_salad: 0.7, milano_doria: 0.8, peperoncino: 0.8 },
-  // 大津：湖畔の家族連れ。サラダ・ドリア・パンがよく出る
-  otsu: { shrimp_salad: 1.4, chicken_salad: 1.4, corn_soup: 1.3, tarako_doria: 1.5, tarako_gratin: 1.4, cinnamon_focaccia: 1.5, cheese_focaccia: 1.3, spicy_chicken: 0.7, chorizo: 0.6 },
+  store1: {},
+  // 2号店：駅前で若いお客さんが多い。ピザと肉料理がよく出る
+  store2: { buffalo_pizza: 1.4, sausage_pizza: 1.5, corn_pizza: 1.4, hamburg: 1.3, mixed_grill: 1.4, chorizo: 1.3, potato_grill: 1.3, wakame_salad: 0.7, milano_doria: 0.8, peperoncino: 0.8 },
+  // 3号店：川の近くの家族連れ。サラダ・ドリア・パンがよく出る
+  store3: { shrimp_salad: 1.4, chicken_salad: 1.4, corn_soup: 1.3, tarako_doria: 1.5, tarako_gratin: 1.4, cinnamon_focaccia: 1.5, cheese_focaccia: 1.3, spicy_chicken: 0.7, chorizo: 0.6 },
 };
 
 export const popularity = (storeId, recipeId) => (BASE[recipeId] ?? 1) * (STORE_TASTE[storeId]?.[recipeId] ?? 1);

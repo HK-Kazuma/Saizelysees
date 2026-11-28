@@ -4,6 +4,7 @@ import { EQUIPMENT, DECOR, STAFF, STORE_SIZES, HALL_BONUS_LV, HALL_BONUS } from 
 import { buildLayout } from './layout.js';
 import { STORE_MAP, nextStoreOf, FIRST_STORE, START_COINS, TRANSFER_COST, ANGRY_PENALTY, evaluate, startGrants } from '../data/stores.js';
 import { checkTips } from './mail.js';
+import { migrateStoreIds, LEGACY_STORE_IDS } from './migrateStoreIds.js';
 import { normalizeHallTasks, normalizeSkills, MANAGER_SKILLS, defaultSkills } from '../data/staffTasks.js';
 
 // セーブは「会社全体」と「店舗ごと」に分けて保存する（v2）。旧セーブ(v1)は1店舗ぶんが1つにまとまっていた。
@@ -132,19 +133,19 @@ export function stageSummary(state, today = { sales: 0, angry: 0 }) {
   const sales = st.sales + today.sales;
   const angry = st.angry + today.angry;
   // 期間を過ぎても、日数は数え続ける（31/30日目…）
-  const sum = { city: store.city, dayNo, days: store.days, goal: store.goal, sales, angry, done: st.done };
+  const sum = { name: store.name, dayNo, days: store.days, goal: store.goal, sales, angry, done: st.done };
   const next = nextStoreOf(store.id);
   const best = Math.max(state.bestDaySales || 0, today.sales);
   if (!st.done && dayNo >= store.days) {
     // 期間の最終日の閉店レポート：本部評価を出す（確定は「つづける」か人事異動で閉じたとき）
     const ev = evaluate(sales, angry, store.goal);
-    sum.evaluation = { ...ev, fresh: true, nextCity: next?.city || null, grants: startGrants(ev.rank, best) };
+    sum.evaluation = { ...ev, fresh: true, nextName: next?.name || null, grants: startGrants(ev.rank, best) };
   } else if (st.done && st.result && next) {
     // 評価のあとも店を続けている間は、保存した評価と人事異動の案内を毎日のレポートに出す
     const score = Math.max(0, st.result.sales - st.result.angry * ANGRY_PENALTY);
-    sum.evaluation = { rank: st.result.rank, rate: st.result.rate, score, fresh: false, nextCity: next.city, grants: startGrants(st.result.rank, best) };
+    sum.evaluation = { rank: st.result.rank, rate: st.result.rate, score, fresh: false, nextName: next.name, grants: startGrants(st.result.rank, best) };
   }
-  if (sum.evaluation?.nextCity) sum.transferCost = TRANSFER_COST;
+  if (sum.evaluation?.nextName) sum.transferCost = TRANSFER_COST;
   return sum;
 }
 
@@ -275,6 +276,8 @@ export function loadGame() {
   try {
     let companyRaw = localStorage.getItem(COMPANY_KEY);
     if (!companyRaw && migrateV1()) companyRaw = localStorage.getItem(COMPANY_KEY);
+    // 店IDが地名だったころのセーブは、新しいIDに移す
+    if (companyRaw && migrateStoreIds(COMPANY_KEY, storeKey)) companyRaw = localStorage.getItem(COMPANY_KEY);
     if (companyRaw) {
       lastCompany = companyRaw;
       const company = JSON.parse(companyRaw);
@@ -316,7 +319,7 @@ export function clearSave() {
   try {
     // 会社・店舗・旧セーブをすべて消す（旧セーブが残ると、次の起動でまた移行されてしまう）
     localStorage.removeItem(COMPANY_KEY);
-    for (const s of Object.keys(STORE_MAP)) localStorage.removeItem(storeKey(s));
+    for (const s of [...Object.keys(STORE_MAP), ...LEGACY_STORE_IDS]) localStorage.removeItem(storeKey(s));
     localStorage.removeItem(OLD_SAVE_KEY);
     lastCompany = '';
   } catch {

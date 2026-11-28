@@ -25,7 +25,7 @@ export default function StoreRecord({ state, id, onClose }) {
   return (
     <div className="store-record" onPointerDown={(e) => e.stopPropagation()}>
       <div className="rec-head">
-        <b>{r.city}店<small>{r.pref}・{note}</small></b>
+        <b>{r.name}<small>{r.pref}・{note}</small></b>
         <button className="close-btn" onClick={onClose}>とじる</button>
       </div>
       <div className="rec-body">

@@ -15,10 +15,10 @@ function Evaluation({ stage, coins }) {
         <b>本部評価</b>
         <div>目標の {Math.round(ev.rate * 100)}%（点数 ¥{ev.score.toLocaleString()}）</div>
         {stage.angry > 0 && <small>怒って帰った {stage.angry}人ぶんを減点</small>}
-        {ev.nextCity && (
+        {ev.nextName && (
           <>
             <div className="eval-grant">
-              {ev.nextCity}の開店資金：＋¥{(g.rank + g.pioneer).toLocaleString()}
+              {ev.nextName}の開店資金：＋¥{(g.rank + g.pioneer).toLocaleString()}
               <small>（評価 ¥{g.rank.toLocaleString()}{g.pioneer > 0 && `／先行特典 ¥${g.pioneer.toLocaleString()}`}）</small>
             </div>
             <div className={`eval-grant ${coins < stage.transferCost ? 'short' : ''}`}>
@@ -67,7 +67,7 @@ export default function ReportPanel({ report, onClose, onNext }) {
         )}
         {stage && !stage.done && (
           <div className="stage-line">
-            <span>{stage.city}店 {stage.dayNo}/{stage.days}日</span>
+            <span>{stage.name} {stage.dayNo}/{stage.days}日</span>
             <span className="stage-bar"><i style={{ width: `${Math.min(100, (stage.sales / stage.goal) * 100)}%` }} /></span>
             <span>累計 ¥{stage.sales.toLocaleString()} / 目標 ¥{stage.goal.toLocaleString()}</span>
           </div>
@@ -100,10 +100,10 @@ export default function ReportPanel({ report, onClose, onNext }) {
           )}
         </div>
         <div className="report-foot">
-          {ev?.nextCity ? (
+          {ev?.nextName ? (
             <>
               <button className="hud-btn" onClick={onClose}>{ev.fresh ? 'もう少し続ける' : '明日へ'}</button>
-              <button className="hud-btn primary" disabled={report.coins < stage.transferCost} onClick={onNext}>{ev.nextCity}へ人事異動する（¥{stage.transferCost.toLocaleString()}）</button>
+              <button className="hud-btn primary" disabled={report.coins < stage.transferCost} onClick={onNext}>{ev.nextName}へ人事異動する（¥{stage.transferCost.toLocaleString()}）</button>
             </>
           ) : (
             <button className="hud-btn primary" onClick={onClose}>{ev ? 'つづける' : '明日へ'}</button>

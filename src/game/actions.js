@@ -43,7 +43,7 @@ function closeReport(state) {
       const next = nextStoreOf(state.storeId);
       if (next) {
         // 本部から、次の店への人事異動の内示（費用と手続きの案内）
-        sendMail(state, { id: `notice:${state.storeId}`, kind: 'notice', params: { from: STORE_MAP[state.storeId].city, to: next.city, rank: ev.rank, cost: TRANSFER_COST, bonus: ev.grants.rank + ev.grants.pioneer } });
+        sendMail(state, { id: `notice:${state.storeId}`, kind: 'notice', params: { from: STORE_MAP[state.storeId].name, to: next.name, rank: ev.rank, cost: TRANSFER_COST, bonus: ev.grants.rank + ev.grants.pioneer } });
       }
     }
   }
@@ -284,7 +284,7 @@ export function applyAction(state, action) {
       const next = ev && nextStoreOf(state.storeId);
       if (!next) return fail('人事異動できません');
       if (state.coins < TRANSFER_COST) return fail(`人事異動には後任店長の採用費 ¥${TRANSFER_COST.toLocaleString()} が必要です`);
-      const fromCity = STORE_MAP[state.storeId].city;
+      const fromName = STORE_MAP[state.storeId].name;
       closeReport(state);
       state.coins -= TRANSFER_COST;
       state.daily.expense.transfer = TRANSFER_COST; // 出費として記録（人事異動の採用費）
@@ -299,9 +299,9 @@ export function applyAction(state, action) {
       Object.keys(state).forEach((k) => delete state[k]);
       Object.assign(state, fresh, { speed });
       syncWorkers(state);
-      state.events.push({ type: 'expand', text: `${next.city}に人事異動しました！${bonus ? `（開店資金 +¥${bonus.toLocaleString()}）` : ''}` });
+      state.events.push({ type: 'expand', text: `${next.name}に人事異動しました！${bonus ? `（開店資金 +¥${bonus.toLocaleString()}）` : ''}` });
       // 本部から辞令のメール
-      sendMail(state, { id: `transfer:${next.id}`, kind: 'transfer', params: { from: fromCity, to: next.city, pref: next.pref, rank: ev.rank, cost: TRANSFER_COST, coins: state.coins, bonus } });
+      sendMail(state, { id: `transfer:${next.id}`, kind: 'transfer', params: { from: fromName, to: next.name, pref: next.pref, rank: ev.rank, cost: TRANSFER_COST, coins: state.coins, bonus } });
       checkTips(state);
       return okMsg();
     }

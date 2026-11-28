@@ -1,13 +1,14 @@
-// 店舗データ。1店舗＝1ステージ。順番に出店していく（都道府県・市町・現存/閉店・順番は P9 で全国に広げる）。
-// 数値（期間・目標）は暫定。テストプレイで調整する。ゲーム内では市町名だけを使う。
+// 店舗データ。1店舗＝1ステージ。実際の出店順（千葉県市川市の1〜3号店）に並べる。
+// 数値（期間・目標）は暫定。テストプレイで調整する。ゲーム内では具体的な地名や店名を使わず、「○号店」と都道府県だけを出す。
+// lat/lon は実際の場所のおおよその位置（2号店は正式な店名と正確な場所が未確認）。4号店からは、裏付けが取れてから足す。
+// label=[dx,dy]：地図で名前を置くずらし（CSSピクセル）。3店舗は近くてピンが重なるので、名前を右・下・左に分ける
 export const STORES = [
-  { id: 'hikone', city: '彦根', pref: '滋賀県', prefId: 'shiga', lat: 35.2745, lon: 136.2597, label: [0, 0], status: 'existing', days: 30, goal: 550000 }, // 1号店：調理・接客の基本
-  { id: 'kusatsu', city: '草津', pref: '滋賀県', prefId: 'shiga', lat: 35.0176, lon: 135.9594, label: [44, 4], status: 'existing', days: 30, goal: 930000 }, // 2号店
-  { id: 'otsu', city: '大津', pref: '滋賀県', prefId: 'shiga', lat: 35.0045, lon: 135.8686, label: [-44, 8], status: 'existing', days: 30, goal: 1290000 }, // 3号店：レイアウト（P8で追加）
+  { id: 'store1', name: '1号店', pref: '千葉県', prefId: 'chiba', lat: 35.7222, lon: 139.9299, label: [40, -27], status: 'existing', days: 30, goal: 550000 }, // 調理・接客の基本
+  { id: 'store2', name: '2号店', pref: '千葉県', prefId: 'chiba', lat: 35.7281, lon: 139.9083, label: [0, 3], status: 'existing', days: 30, goal: 930000 },
+  { id: 'store3', name: '3号店', pref: '千葉県', prefId: 'chiba', lat: 35.7302, lon: 139.9078, label: [-40, -27], status: 'existing', days: 30, goal: 1290000 }, // レイアウト（P8で追加）
 ];
 export const STORE_MAP = Object.fromEntries(STORES.map((s) => [s.id, s]));
 export const FIRST_STORE = STORES[0].id;
-// 地図に出す店の位置（lat/lon）と、名前を置くずらし(label=[dx,dy] CSSピクセル)。近い店どうしの名前が重ならないように
 export const nextStoreOf = (id) => STORES[STORES.findIndex((s) => s.id === id) + 1] || null;
 
 export const START_COINS = 1000;

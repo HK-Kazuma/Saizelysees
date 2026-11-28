@@ -113,7 +113,7 @@ ${localStorage.getItem(storeKey(state.storeId))}`); setSaveMsg('会社・店舗�
         <button onClick={() => run({ type: 'DEV_STAGE', rate: 1.0, angry: 40 })}>最終日(怒40人)</button>
       </div>
       <div className="dev-row">
-        {STORES.map((s) => <button key={s.id} className={state.storeId === s.id ? 'on' : ''} onClick={() => run({ type: 'DEV_STORE', id: s.id })}>{s.city}にする</button>)}
+        {STORES.map((s) => <button key={s.id} className={state.storeId === s.id ? 'on' : ''} onClick={() => run({ type: 'DEV_STORE', id: s.id })}>{s.name}にする</button>)}
       </div>
       <div className="dev-row">
         {[0, 5000, 10000, 20000].map((n) => <button key={n} onClick={() => run({ type: 'DEV_BEST', amount: n })}>最高売上¥{n.toLocaleString()}</button>)}

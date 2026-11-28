@@ -25,14 +25,15 @@ export const REGIONS = [
   { id: 'kyushu', name: '九州', prefs: ['fukuoka', 'saga', 'nagasaki', 'kumamoto', 'oita', 'miyazaki', 'kagoshima'] },
   { id: 'okinawa', name: '沖縄', prefs: ['okinawa'] },
 ];
+const HOME_REGION = 'kanto'; // いま出店している地方（色を変え、県名を早めに出す）
 const REGION_OF = Object.fromEntries(REGIONS.flatMap((r) => r.prefs.map((p) => [p, r.id])));
 
 // ───────── 色 ─────────
 const C = {
   sea: '#6db6e0', seaDeep: '#5aa3cf', seaDot: '#86c6ea', lake: '#a6dcf3', shadow: '#4d8fb8',
   open: ['#9bd470', '#8ccb64'], // 解放した都道府県
-  openKinki: ['#f2d860', '#ecca4a'], // 近畿（いまの地方）
-  lockKinki: ['#d9d0b2', '#cfc6a6'], // 未解放（近畿）
+  openHome: ['#f2d860', '#ecca4a'], // 関東（いまの地方）
+  lockHome: ['#d9d0b2', '#cfc6a6'], // 未解放（関東）
   lock: ['#c9cabf', '#bfc0b5'], // 未解放（ほかの地方）
   border: '#6f8a58', borderLock: '#8d8a7c', coast: '#3f5f3a', coastLock: '#6d6a5c', openBorder: '#2f6b3a',
 };
@@ -107,10 +108,10 @@ export function buildBase(japan, unlocked) {
   const pat = {};
   const fillOf = (p) => {
     const open = unlocked.has(p.id);
-    const kinki = p.region === 'kinki';
-    const key = open ? (kinki ? 'ok' : 'o') : kinki ? 'lk' : 'l';
+    const home = p.region === HOME_REGION;
+    const key = open ? (home ? 'oh' : 'o') : home ? 'lh' : 'l';
     if (!pat[key]) {
-      const [a, b] = open ? (kinki ? C.openKinki : C.open) : kinki ? C.lockKinki : C.lock;
+      const [a, b] = open ? (home ? C.openHome : C.open) : home ? C.lockHome : C.lock;
       pat[key] = g.createPattern(checker(a, b), 'repeat');
     }
     return pat[key];
@@ -135,7 +136,7 @@ export function buildBase(japan, unlocked) {
       }
     }
   };
-  for (const p of japan.prefs) if (!unlocked.has(p.id)) outline(p, p.region === 'kinki' ? C.border : C.borderLock);
+  for (const p of japan.prefs) if (!unlocked.has(p.id)) outline(p, p.region === HOME_REGION ? C.border : C.borderLock);
   for (const p of japan.prefs) if (unlocked.has(p.id)) outline(p, C.openBorder);
   return cv;
 }
@@ -145,7 +146,7 @@ export function buildBase(japan, unlocked) {
 export const fitZoom = (box, w, h, margin = 1.15) => Math.min(w / (box.w * margin), h / (box.h * margin));
 export function clampCam(cam, w, h) {
   const kMin = fitZoom({ w: WORLD.w, h: WORLD.h }, w, h, 1);
-  cam.k = Math.min(24, Math.max(kMin, cam.k));
+  cam.k = Math.min(72, Math.max(kMin, cam.k));
   const hw = w / (2 * cam.k), hh = h / (2 * cam.k);
   // 世界の外が大きく見えないようにする（世界が画面より小さい向きは中央に置く）
   cam.cx = WORLD.w <= hw * 2 ? WORLD.w / 2 : Math.min(WORLD.w - hw, Math.max(hw, cam.cx));
@@ -208,6 +209,9 @@ function drawPin(g, x, y, status, s, t) {
   g.beginPath(); g.arc(x, y - s * 1.0 + bob, s * 0.28, 0, Math.PI * 2); g.fill();
 }
 
+// 店の名前の中心（ピンの先からのずれ。CSSピクセル）
+export const labelOffset = (pin) => ({ x: pin.dx || 0, y: 13 + (pin.dy || 0) });
+
 // 地図を1フレーム描く。
 // opts: { w, h, dpr, t(秒), pins:[{x,y,name,status,dx,dy}], route:[{x,y}], traveler:{x,y,sprite}|null, selected }
 export function drawMap(g, japan, base, cam, opts) {
@@ -232,10 +236,9 @@ export function drawMap(g, japan, base, cam, opts) {
     }
     g.globalAlpha = 1;
   }
-  // 県の名前：近畿は早めに、ほかは大きく寄ったときに
+  // 県の名前：関東は早めに、ほかは大きく寄ったときに
   for (const p of japan.prefs) {
-    const kinki = p.region === 'kinki';
-    const need = kinki ? 1.5 : 2.6;
+    const need = p.region === HOME_REGION ? 1.5 : 2.6;
     if (z < need) continue;
     const a = Math.min(1, (z - need) / 0.5);
     const q = P(p.label.x, p.label.y);
@@ -271,15 +274,21 @@ export function drawMap(g, japan, base, cam, opts) {
     g.setLineDash([]);
   }
 
-  // ピンと店の名前（奥にあるものから）
-  const pins = [...opts.pins].sort((a, b) => a.y - b.y);
+  // ピンと店の名前（奥にあるものから。重なっても見えるように、次の赴任先といまの店は手前に）
+  const rank = (p) => (p.status === 'current' ? 2 : p.status === 'next' ? 1 : 0);
+  const pins = [...opts.pins].sort((a, b) => rank(a) - rank(b) || a.y - b.y);
   for (const pin of pins) {
     const q = P(pin.x, pin.y);
     if (q.x < -60 || q.y < -80 || q.x > w + 60 || q.y > h + 60) continue;
     const s = S(13);
     drawPin(g, q.x, q.y, pin.status, s, t);
-    const nameY = q.y + S(13) + (pin.dy || 0) * S(1);
-    text(g, `${pin.name}店`, q.x + (pin.dx || 0) * S(1), nameY, S(15), pin.status === 'future' ? '#555' : '#1b1b22');
+  }
+  // 名前はピンより後に描く（近くのピンに隠れないように）
+  for (const pin of pins) {
+    const q = P(pin.x, pin.y);
+    if (q.x < -60 || q.y < -80 || q.x > w + 60 || q.y > h + 60) continue;
+    const name = labelOffset(pin);
+    text(g, pin.name, q.x + S(name.x), q.y + S(name.y), S(15), pin.status === 'future' ? '#555' : '#1b1b22');
   }
 
   // 移動中の店長
