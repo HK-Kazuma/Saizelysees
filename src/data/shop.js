@@ -37,10 +37,10 @@ export const DECOR_MAP = Object.fromEntries(DECOR.map((d) => [d.id, d]));
 // 店舗サイズ。cols×rows のグリッド
 export const STORE_SIZES = [
   { cols: 10, rows: 8, price: 0, lv: 1, staffMax: 1, name: '小さなお店' },
-  { cols: 12, rows: 9, price: 6000, lv: 4, staffMax: 2, name: '街角のお店' },
+  { cols: 13, rows: 9, price: 6000, lv: 4, staffMax: 2, name: '街角のお店' },
   { cols: 14, rows: 11, price: 18000, lv: 7, staffMax: 3, name: '大通りのお店' },
   { cols: 16, rows: 12, price: 36000, lv: 10, staffMax: 4, name: '繁華街のお店' },
-  { cols: 18, rows: 14, price: 70000, lv: 12, staffMax: 5, name: '旗艦店' },
+  { cols: 19, rows: 14, price: 70000, lv: 12, staffMax: 5, name: '旗艦店' },
 ];
 
 // レベル20になると、ホールスタッフの上限が店舗サイズの上限より2人増える

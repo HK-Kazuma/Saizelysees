@@ -26,7 +26,8 @@ export const BREAK_ROOM = {
 
 export function tableSlots(cols, rows) {
   const xs = [];
-  for (let tx = 4; tx + 1 <= cols - 1; tx += 3) xs.push(tx);
+  // 右端の列(cols-1)には椅子を置かない：手前からドリンクバーまで歩ける通路にする
+  for (let tx = 4; tx + 1 <= cols - 2; tx += 3) xs.push(tx);
   const ys = [];
   for (let ty = 5; ty <= rows - 1; ty += 2) ys.push(ty);
   const slots = [];
